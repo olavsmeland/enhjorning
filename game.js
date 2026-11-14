@@ -1558,8 +1558,6 @@
     try { $('heroUnicorn').src = heroPortrait('unicorn'); $('heroPanda').src = heroPortrait('panda'); } catch (e) { console.warn(e); }
     $('optMusic').checked = settings.music;
     $('optVoice').checked = settings.voice;
-    const vn = Sfx.voiceName();
-    $('voiceInfo').textContent = vn ? `(${vn})` : '(fant ingen norsk stemme)';
   }
 
   function startGame(cam) {
