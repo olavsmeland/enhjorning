@@ -1556,7 +1556,8 @@
       b.classList.toggle('on', b.dataset.hero === hero());
       b.classList.toggle('locked', b.dataset.hero === 'panda' && !save.panda);
     }
-    $('heroPandaTxt').innerHTML = save.panda ? 'Panda' : `Panda<small>🔒 ${doneCount()} av ${ANIMALS.length} dyr</small>`;
+    // Låst panda: si hva som skal til (trykk på den viser albumet med hvor langt man har kommet)
+    $('heroPandaTxt').innerHTML = save.panda ? 'Panda' : 'Panda<small>🔒 Samle alle dyrene</small>';
     try { $('heroUnicorn').src = heroPortrait('unicorn'); $('heroPanda').src = heroPortrait('panda'); } catch (e) { console.warn(e); }
   }
 
