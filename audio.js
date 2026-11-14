@@ -693,6 +693,8 @@ window.Sfx = (() => {
       if (!voiceOn) { stopVoice(); if ('speechSynthesis' in window) window.speechSynthesis.cancel(); }
     },
     say,
+    // Snakker Vilde nå (eller er en replikk på vei)?
+    speaking() { return !!(voiceSrc || pendingSay); },
     voiceName() {
       const urls = Object.values((pack && pack.stemme) || {}), info = (pack && pack.info) || {};
       if (urls.length && (info.stemmeKilde === 'elevenlabs' || urls.some(u => /\.mp3$/i.test(u)))) return 'ElevenLabs' + (info.stemme ? ': ' + info.stemme : '');

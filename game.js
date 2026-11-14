@@ -802,7 +802,12 @@
         const d = nr.x - U.x;
         const showAt = lett ? 440 : 620;
         if (lett) {
-          if (!U.air && d < showAt && d > 0) show = true;
+          if (!U.air && d < showAt && d > 0) {
+            show = true;
+            // Lett: Vilde sier «Hopp!» hver gang HOPP!-boblen kommer (venter til annen tale er ferdig).
+            // Har hun nettopp sagt «Hopp over kaninen!», trengs det ikke.
+            if (nr.hinted && !nr.cued && time >= talkUntil && !Sfx.speaking()) { nr.cued = true; Sfx.say('hopp', true); }
+          }
         } else if (!U.air) {
           // Litt før vinduet åpner, så et barns reaksjonstid lander midt i det
           const v = Math.max(80, U.speed), w = jumpWindow(nr.a, v);
@@ -817,8 +822,7 @@
           Sfx.hint();
           if (time >= talkUntil) {
             Sfx.animal(nr.kind);
-            if (n <= 2) Sfx.say('hopp_over_' + nr.kind, true);
-            else if (lett && (sayHopNext || n % 3 === 0)) Sfx.say('hopp', true);
+            if (n <= 2) { Sfx.say('hopp_over_' + nr.kind, true); if (lett) nr.cued = true; }
           }
           if (lett) sayHopNext = false;
         }
