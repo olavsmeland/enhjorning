@@ -520,7 +520,7 @@
     state = 'play';
     Sfx.setBiome(biomeIdx);
     if (roundNo === 1) {
-      banner = { text: b.name, sub: useCamera ? 'Hopp på ordentlig!' : (isTouch ? 'Trykk for å hoppe!' : '↑ hopp  ·  ← → fart'), t: 0, dur: 3.8 };
+      banner = { text: b.name, sub: useCamera ? 'Hopp på ordentlig!' : (isTouch ? 'Trykk for å hoppe!' : 'Klikk eller mellomrom = hopp!'), t: 0, dur: 3.8 };
       Sfx.say(roundAnimal === 0 ? 'start' : ['hei', 'naa_' + a.kind], true);
       talkUntil = time + (roundAnimal === 0 ? 3.5 : 4.5);
     } else {
@@ -1650,7 +1650,7 @@
     $('goalText').textContent = `Du hoppet over ${roundJumps} ${roundJumps === 1 ? a.name.toLowerCase() : a.pl} og samlet ${roundHearts} hjerter!` +
       (roundBumps === 0 ? ' Ingen krasj! 🌟' : '');
     $('goalNextName').textContent = nxt.name;
-    $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Trykk ↑ eller mellomrom for å fortsette';
+    $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
     // Albumet, og pandaen når alle dyrene er samlet
     const news = goalNews || {}, n = doneCount();
     $('goalAlbum').textContent = news.newAnimal ? `📖 Nytt dyr i albumet! (${n} av ${ANIMALS.length})` : `📖 Albumet: ${n} av ${ANIMALS.length} dyr`;
@@ -1752,7 +1752,7 @@
     syncMenu();
   }
   // Hele skjermen når spillet starter (Mac, iPad og Android – iPhone-Safari kan ikke dette,
-  // der brukes Hjem-skjermen i stedet, se #homeHelp)
+  // der brukes Hjem-skjermen i stedet, se #tvHelp)
   function goFullscreen() {
     const d = document, el = d.documentElement;
     if (d.fullscreenElement || d.webkitFullscreenElement) return;
@@ -1817,6 +1817,7 @@
   };
   const releaseKeys = () => { keys.up = keys.down = keys.left = keys.right = false; };
   window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('tvHelp').classList.contains('hidden')) { show($('tvHelp'), false); return; }
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       if (state === 'play') pause(); else if (state === 'pause') resume();
       return;
@@ -1877,22 +1878,77 @@
     Sfx.say(settings.hero === 'panda' ? 'hei_panda' : 'hei_enhjorning', true);
   });
 
-  // Tilpass menyen til telefon/nettbrett
+  // Tilpass menyen: to valg – kamera eller fingeren (på Mac/PC uten berøringsskjerm: klikk eller mellomrom)
   if (isTouch) {
-    $('btnKeys').innerHTML = '<span class="ico">👆</span><span class="txt">Spill med fingeren<small>Trykk for å hoppe</small></span>';
     $('helpText').innerHTML = 'Trykk hvor som helst for å hoppe – hold fingeren på for å hoppe høyere.<br>Knappene ◀ ▶ nede til venstre gir saktere eller fortere fart. 12 hjerter på rad gir ⚡ TURBO!';
+  } else {
+    $('btnKeys').innerHTML = '<span class="ico">👆</span><span class="txt">Spill uten kamera<small>Klikk eller trykk mellomrom</small></span>';
   }
-  if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) {
-    $('btnFull').classList.add('hidden');
-    // iPhone: Safari viser alltid faner og adressefelt. Åpnet fra Hjem-skjermen blir spillet en egen app i fullskjerm.
-    const app = navigator.standalone === true || (window.matchMedia &&
-      (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches));
-    if (isTouch && !app) {
-      show($('btnHome'), true);
-      $('btnHome').addEventListener('click', () => { Sfx.init(); Sfx.click(); show($('homeHelp'), true); });
-      $('btnHomeClose').addEventListener('click', () => show($('homeHelp'), false));
-    }
+  const hasFullscreen = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  if (!hasFullscreen) $('btnFull').classList.add('hidden');
+
+  // ---------- «Spill på TV»: enkel bruksanvisning for skjermspeiling, tilpasset enheten ----------
+  const UA = navigator.userAgent;
+  const device = /iPhone|iPod/.test(UA) ? 'iphone'
+    : (/iPad/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1)) ? 'ipad'
+    : /Android/.test(UA) ? 'android'
+    : /Mac/.test(UA) ? 'mac' : 'pc';
+  // iPhone-Safari viser alltid faner og adressefelt. Åpnet fra Hjem-skjermen blir spillet en egen app i fullskjerm.
+  const isApp = navigator.standalone === true || (window.matchMedia &&
+    (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches));
+  const needsHome = !hasFullscreen && isTouch && !isApp;
+  const IC_MIRROR = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="13" height="10" rx="2"/><rect x="8.5" y="9.5" width="13" height="10" rx="2" fill="#fff"/></svg>';
+  const IC_CC = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="7.5" rx="3.75"/><circle cx="17.2" cy="7.25" r="2" fill="currentColor"/><rect x="2.5" y="13" width="19" height="7.5" rx="3.75"/><circle cx="6.8" cy="16.75" r="2" fill="currentColor"/></svg>';
+  const TV_GUIDE = {
+    iphone: {
+      steps: ['Sveip ned fra <b>øverste høyre hjørne</b> av skjermen.',
+        `Trykk på ${IC_MIRROR} <b>Skjermspeiling</b>.`,
+        'Velg TV-en. Snu telefonen på tvers og start spillet.'],
+      cam: 'Sett telefonen liggende foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). Telefonen og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel med adapter. Smale svarte kanter på TV-en er normalt.',
+    },
+    ipad: {
+      steps: ['Sveip ned fra <b>øverste høyre hjørne</b> av skjermen.',
+        `Trykk på ${IC_MIRROR} <b>Skjermspeiling</b>.`,
+        'Velg TV-en og start spillet. Det fyller hele skjermen av seg selv.'],
+      cam: 'Sett iPaden liggende foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). iPaden og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel med adapter.',
+    },
+    mac: {
+      steps: [`Klikk på ${IC_CC} <b>Kontrollsenter</b> øverst til høyre på skjermen.`,
+        `Klikk på ${IC_MIRROR} <b>Skjermspeiling</b> og velg TV-en.`,
+        'Start spillet. Det fyller hele skjermen av seg selv.'],
+      cam: 'Sett Mac-en foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). Mac-en og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel.',
+    },
+    android: {
+      steps: ['Sveip ned fra toppen av skjermen to ganger.',
+        'Trykk på <b>Smart View</b>, <b>Cast</b> eller <b>Skjermcasting</b>.',
+        'Velg TV-en. Snu telefonen på tvers og start spillet.'],
+      cam: 'Sett telefonen liggende foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger en TV med Chromecast eller Google TV (eller Samsung-TV for Smart View), på samme Wi-Fi. Ellers: HDMI-kabel.',
+    },
+    pc: {
+      steps: ['Trykk <span class="key">⊞ Windows</span> + <span class="key">K</span>.',
+        'Velg TV-en.',
+        'Start spillet. Det fyller hele skjermen av seg selv.'],
+      cam: 'Sett PC-en foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger en TV som kan ta imot skjermdeling (Miracast). Ellers: HDMI-kabel fra PC-en til TV-en.',
+    },
+  };
+  {
+    const g = TV_GUIDE[device];
+    show($('tvApp'), needsHome);
+    show($('tvMirrorNum'), needsHome);
+    $('tvMirrorTitle').textContent = needsHome ? 'Vis spillet på TV-en' : 'Slik viser du spillet på TV-en';
+    $('tvSteps').innerHTML = g.steps.map(t => `<li>${t}</li>`).join('');
+    $('tvCamTip').innerHTML = `📷 <b>Med kamera:</b> ${g.cam} Barnet står 2–3 meter unna.`;
+    $('tvNeed').textContent = g.need;
   }
+  const tvEl = $('tvHelp');
+  $('btnTv').addEventListener('click', () => { Sfx.init(); Sfx.click(); show(tvEl, true); });
+  $('btnTvClose').addEventListener('click', () => show(tvEl, false));
+  tvEl.addEventListener('click', e => { if (e.target === tvEl) show(tvEl, false); });
 
   // «Spill på iPhone/iPad»: start-skriptet skriver adressen på hjemmenettet til lan.json
   if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {

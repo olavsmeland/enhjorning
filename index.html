@@ -245,20 +245,35 @@
   #phoneQr svg { width: 220px; height: 220px; border-radius: 16px; background: #fff; }
   #phoneUrl { font-size: 22px; font-weight: 600; color: var(--pink); word-break: break-all; }
 
-  /* Fullskjerm på iPhone (Hjem-skjerm) */
+  /* Spill på TV (skjermspeiling, og Hjem-skjerm på iPhone) */
   #menu .card { position: relative; }
-  button.corner-r { position: absolute; top: 12px; right: 14px; font-size: 15px; padding: 6px 12px; z-index: 2; }
-  #homeHelp .card { max-width: 560px; }
+  button.corner-r { position: absolute; top: 12px; right: 14px; font-size: 16px; padding: 7px 14px; z-index: 2; }
+  .tv-card { max-width: 900px; padding-top: 24px; }
+  .tv-card h2 { margin-bottom: 12px; }
+  .tv-cols { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .tv-box { flex: 1 1 340px; max-width: 520px; background: var(--lilac); border-radius: 26px; padding: 14px 18px 4px; text-align: left; }
+  .tv-box h3 { margin: 0 0 8px; font-size: 22px; color: var(--pink); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tv-box h3 small { font-size: 15px; font-weight: 500; color: var(--ink-soft); }
+  .tv-box .num { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 19px; flex: none; }
+  .tv-box .steps { margin-bottom: 8px; }
+  .tv-tip { font-size: 18px; font-weight: 500; background: #fff4d6; border-radius: 18px; padding: 10px 16px; margin: 0 0 8px; color: var(--ink); }
+  .ic { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; padding: 2px; border-radius: 7px; background: #fff; color: var(--pink); box-shadow: 0 1px 3px rgba(120,60,160,0.25); }
   .steps { text-align: left; margin: 0 0 12px; padding-left: 26px; font-size: 18px; line-height: 1.5; color: var(--ink-soft); }
   .steps li { margin-bottom: 8px; }
-  .steps .key { display: inline-block; min-width: 26px; padding: 0 6px; border-radius: 8px; background: var(--lilac); color: var(--pink); font-weight: 700; text-align: center; }
+  .steps .key { display: inline-block; min-width: 26px; padding: 0 6px; border-radius: 8px; background: #fff; color: var(--pink); font-weight: 700; text-align: center; }
   @media (max-height: 520px) {
-    #homeHelp .card { max-width: 640px; padding: 14px 22px 12px; }
-    #homeHelp h2 { font-size: 22px; margin: 0 0 4px; }
-    #homeHelp .goal-text { font-size: 14px; margin: 0 0 6px; }
-    #homeHelp .steps { font-size: 14px; line-height: 1.35; margin-bottom: 6px; }
-    #homeHelp .steps li { margin-bottom: 3px; }
-    #homeHelp .help { font-size: 12px; margin: 0 0 8px; }
+    button.corner-r { top: 8px; right: 10px; font-size: 13px; padding: 4px 10px; }
+    .tv-card { padding: 10px 18px 10px; }
+    .tv-card h2 { font-size: 24px; margin: 0 0 6px; }
+    .tv-cols { gap: 8px; margin-bottom: 6px; flex-wrap: nowrap; }
+    .tv-box { flex: 1 1 0; padding: 8px 12px 2px; border-radius: 18px; }
+    .tv-box h3 { font-size: 16px; margin-bottom: 4px; gap: 6px; }
+    .tv-box h3 small { font-size: 12px; }
+    .tv-box .num { width: 24px; height: 24px; font-size: 14px; }
+    .tv-box .steps { font-size: 13.5px; line-height: 1.35; padding-left: 20px; margin-bottom: 4px; }
+    .tv-box .steps li { margin-bottom: 3px; }
+    .tv-tip { font-size: 13px; padding: 6px 12px; border-radius: 14px; margin-bottom: 4px; }
+    .tv-card .help { font-size: 12px; line-height: 1.4; margin: 0 0 6px; }
   }
 
   /* Velg figur (enhjørning eller panda) */
@@ -398,13 +413,13 @@
 <!-- Hovedmeny -->
 <div id="menu" class="overlay">
   <div class="card">
-    <button id="btnHome" class="small corner-r hidden">📺 Fullskjerm / TV</button>
+    <button id="btnTv" class="small corner-r">📺 Spill på TV</button>
     <img id="logo" class="logo" alt="Enhjørning under en regnbue">
     <h1>Enhjørning-eventyret</h1>
     <p class="lead">Hopp over dyrene og samle hjerter!</p>
     <div class="big-buttons">
-      <button id="btnKeys" class="big pink"><span class="ico">⌨️</span><span class="txt">Spill med tastatur<small>Hopp med pil opp</small></span></button>
-      <button id="btnCam" class="big blue"><span class="ico">📷</span><span class="txt">Spill med kamera<small>Hopp på ordentlig!</small></span></button>
+      <button id="btnCam" class="big pink"><span class="ico">📷</span><span class="txt">Spill med kamera<small>Hopp med hele kroppen!</small></span></button>
+      <button id="btnKeys" class="big blue"><span class="ico">👆</span><span class="txt">Spill med fingeren<small>Trykk på skjermen for å hoppe</small></span></button>
     </div>
     <div class="settings">
       <div class="row">
@@ -428,7 +443,7 @@
         <label class="chk"><input type="checkbox" id="optVoice"> Stemme</label>
       </div>
     </div>
-    <p class="help" id="helpText">Hopp: <kbd>↑</kbd> eller <kbd>mellomrom</kbd> · Høyere/lavere i lufta: <kbd>↑</kbd> <kbd>↓</kbd> · Fart: <kbd>←</kbd> <kbd>→</kbd><br>Pause: <kbd>Esc</kbd> · Fullskjerm: <kbd>F</kbd> · 12 hjerter på rad gir ⚡ TURBO!</p>
+    <p class="help" id="helpText">Hopp: klikk hvor som helst eller trykk <kbd>mellomrom</kbd> – hold inne for å hoppe høyere.<br>Fart: <kbd>←</kbd> <kbd>→</kbd> · Pause: <kbd>Esc</kbd> · 12 hjerter på rad gir ⚡ TURBO!</p>
     <button id="btnFull" class="small">⛶ Fullskjerm</button>
     <button id="btnPhone" class="small hidden">📱 Spill på iPhone/iPad</button>
   </div>
@@ -525,18 +540,27 @@
   </div>
 </div>
 
-<!-- Fullskjerm på iPhone: legg spillet på Hjem-skjermen -->
-<div id="homeHelp" class="overlay hidden">
-  <div class="card">
-    <h2>📺 Hele skjermen, også på TV-en</h2>
-    <p class="goal-text">I Safari på iPhone vises alltid adressefeltet og fanene. Legger du spillet på Hjem-skjermen, åpnes det som en egen app uten dem:</p>
-    <ol class="steps">
-      <li>Trykk på <b>Del-knappen</b> <span class="key">⬆︎</span> i Safari. Ser du den ikke, trykk først på <span class="key">•••</span> nederst.</li>
-      <li>Velg <b>«Legg til på Hjem-skjerm»</b>. La «Åpne som nettapp» være på, og trykk <b>Legg til</b>.</li>
-      <li>Åpne spillet fra det nye <b>Enhjørning</b>-ikonet. Nå dekker det hele skjermen, også når du speiler til TV-en.</li>
-    </ol>
-    <p class="help">TV-en kan vise smale svarte kanter. Det er fordi iPhone-skjermen er litt lengre enn TV-skjermen.</p>
-    <button id="btnHomeClose" class="small">Lukk</button>
+<!-- Spill på TV: speil skjermen (og på iPhone: legg spillet på Hjem-skjermen først) -->
+<div id="tvHelp" class="overlay hidden">
+  <div class="card tv-card">
+    <h2>📺 Spill på TV-en</h2>
+    <div class="tv-cols">
+      <section class="tv-box hidden" id="tvApp">
+        <h3><span class="num">1</span> Gjør spillet til en app <small>(bare første gang)</small></h3>
+        <ol class="steps">
+          <li>Trykk på <b>Del-knappen</b> <span class="key">⬆︎</span> i Safari. Ser du den ikke, trykk først på <span class="key">•••</span>.</li>
+          <li>Velg <b>«Legg til på Hjem-skjerm»</b> og trykk <b>Legg til</b>.</li>
+          <li>Åpne spillet fra <b>Enhjørning</b>-ikonet. Da dekker det hele skjermen, uten faner.</li>
+        </ol>
+      </section>
+      <section class="tv-box">
+        <h3><span class="num" id="tvMirrorNum">2</span> <span id="tvMirrorTitle">Vis spillet på TV-en</span></h3>
+        <ol class="steps" id="tvSteps"></ol>
+      </section>
+    </div>
+    <p class="tv-tip" id="tvCamTip"></p>
+    <p class="help" id="tvNeed"></p>
+    <button id="btnTvClose" class="small">Lukk</button>
   </div>
 </div>
 
