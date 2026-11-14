@@ -1941,28 +1941,6 @@
   $('btnTvClose').addEventListener('click', () => show(tvEl, false));
   tvEl.addEventListener('click', e => { if (e.target === tvEl) show(tvEl, false); });
 
-  // «Spill på iPhone/iPad»: start-skriptet skriver adressen på hjemmenettet til lan.json
-  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
-    fetch('lan.json', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(info => {
-      if (!info || !info.url) return;
-      $('phoneUrl').textContent = info.url;
-      show($('btnPhone'), true);
-      $('btnPhone').addEventListener('click', () => {
-        show($('phone'), true);
-        const box = $('phoneQr');
-        if (box.dataset.done) return;
-        box.dataset.done = '1';
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
-        s.onload = () => {
-          try { const q = window.qrcode(0, 'M'); q.addData(info.url); q.make(); box.innerHTML = q.createSvgTag(7, 10); } catch (e) { console.warn(e); }
-        };
-        document.head.appendChild(s);
-      });
-    }).catch(() => {});
-  }
-  $('btnPhoneClose').addEventListener('click', () => show($('phone'), false));
-
   // Menylogo tegnes med samme grafikk som spillet
   try { $('logo').src = Art.logoDataURL(); } catch (e) { console.warn(e); }
 

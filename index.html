@@ -239,11 +239,6 @@
   }
   @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 
-  /* iPhone-tips i menyen */
-  #phone .card { max-width: 520px; padding-top: 26px; }
-  #phoneQr { display: grid; place-items: center; min-height: 120px; }
-  #phoneQr svg { width: 220px; height: 220px; border-radius: 16px; background: #fff; }
-  #phoneUrl { font-size: 22px; font-weight: 600; color: var(--pink); word-break: break-all; }
 
   /* Spill på TV (skjermspeiling, og Hjem-skjerm på iPhone) */
   #menu .card { position: relative; }
@@ -438,7 +433,6 @@
         <button id="btnAlbum" class="hero-btn album-btn"><span class="book">📖</span><span>Dyrealbum</span></button>
       </div>
     </div>
-    <button id="btnPhone" class="small hidden">📱 Spill på iPhone/iPad</button>
   </div>
 </div>
 
@@ -519,18 +513,6 @@
   <button id="tFast" class="speed" aria-label="Fortere">▶</button>
   <button id="tJump" aria-label="Hopp"><span>⬆</span>HOPP</button>
   <div class="hand" aria-hidden="true">👇</div>
-</div>
-
-<!-- Spill på iPhone/iPad -->
-<div id="phone" class="overlay hidden">
-  <div class="card">
-    <h2>📱 Spill på iPhone eller iPad</h2>
-    <p class="goal-text">Telefonen må være på samme Wi-Fi som Mac-en. Skann koden med kameraet, eller skriv adressen i Safari:</p>
-    <div id="phoneQr"></div>
-    <p id="phoneUrl"></p>
-    <p class="help">Tips: Trykk på Del-knappen i Safari og velg «Legg til på Hjem-skjerm», så får du spillet som en app i fullskjerm.</p>
-    <button id="btnPhoneClose" class="small">Lukk</button>
-  </div>
 </div>
 
 <!-- Spill på TV: speil skjermen (og på iPhone: legg spillet på Hjem-skjermen først) -->
