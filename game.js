@@ -53,7 +53,7 @@
 
   // ================= Konstanter =================
   const PATH_HALF = 56;           // halv bredde på stien
-  const FEST_HEARTS = 80;         // hjerter som trengs for å komme i mål (én runde, ca. halvannet minutt)
+  const FEST_HEARTS = 60;         // hjerter som trengs for å komme i mål (én runde, drøyt ett minutt)
   const TURBO_NEED = 12;          // hjerter på rad som gir turbo
   const TURBO_TIME = 7.5;         // sekunder enhjørningen flyr i turbo
   const ARMS_BONUS = 7;           // inntil så mange sekunder ekstra flytur når barnet holder armene ute (kamera)
@@ -1753,6 +1753,17 @@
     resetSession();
     syncMenu();
   }
+  // Hele skjermen når spillet starter (Mac, iPad og Android – iPhone-Safari kan ikke dette,
+  // der brukes Hjem-skjermen i stedet, se #homeHelp)
+  function goFullscreen() {
+    const d = document, el = d.documentElement;
+    if (d.fullscreenElement || d.webkitFullscreenElement) return;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    try {
+      const p = req && req.call(el);
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) { /* nettleseren sa nei – spill videre i vinduet */ }
+  }
   function toggleFullscreen() {
     const d = document, el = d.documentElement;
     if (!(d.fullscreenElement || d.webkitFullscreenElement)) {
@@ -1777,12 +1788,12 @@
     Sfx.setVoice(settings.voice);
     if (settings.voice) { Sfx.init(); Sfx.say('hei', true); }
   });
-  $('btnKeys').addEventListener('click', () => startGame(false));
+  $('btnKeys').addEventListener('click', () => { goFullscreen(); startGame(false); });
   $('btnCam').addEventListener('click', openCamSetup);
   $('btnFull').addEventListener('click', toggleFullscreen);
   $('btnResume').addEventListener('click', resume);
   $('btnToMenu').addEventListener('click', toMenu);
-  $('camStart').addEventListener('click', () => startGame(true));
+  $('camStart').addEventListener('click', () => { goFullscreen(); startGame(true); });
   $('camBack').addEventListener('click', toMenu);
   $('camSens').addEventListener('input', e => { settings.sens = +e.target.value; JumpCam.setSensitivity(settings.sens); saveSettings(); });
   $('camSelect').addEventListener('change', e => { settings.camId = e.target.value; saveSettings(); startCamera(); });
@@ -1875,6 +1886,14 @@
   }
   if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) {
     $('btnFull').classList.add('hidden');
+    // iPhone: Safari viser alltid faner og adressefelt. Åpnet fra Hjem-skjermen blir spillet en egen app i fullskjerm.
+    const app = navigator.standalone === true || (window.matchMedia &&
+      (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches));
+    if (isTouch && !app) {
+      show($('btnHome'), true);
+      $('btnHome').addEventListener('click', () => { Sfx.init(); Sfx.click(); show($('homeHelp'), true); });
+      $('btnHomeClose').addEventListener('click', () => show($('homeHelp'), false));
+    }
   }
 
   // «Spill på iPhone/iPad»: start-skriptet skriver adressen på hjemmenettet til lan.json

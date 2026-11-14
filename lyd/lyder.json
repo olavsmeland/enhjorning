@@ -1,12 +1,13 @@
 {
   "info": {
     "stemme": "Vilde",
-    "talemodell": "eleven_v3",
-    "laget": "2026-11-14T08:53:43.561Z",
+    "talemodell": "eleven_v4",
+    "laget": "2026-11-14T14:14:54.036Z",
     "stemmeKilde": "elevenlabs",
     "stemmeRate": 1,
-    "ettOpptak": true,
-    "musikk": "ElevenLabs Music"
+    "ettOpptak": false,
+    "musikk": "ElevenLabs Music",
+    "metode": "én replikk per opptak, samme innstillinger, likhetssjekk"
   },
   "stemme": {
     "armer_fugl": "lyd/stemme/armer_fugl.m4a",

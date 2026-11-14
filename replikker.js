@@ -6,14 +6,14 @@
  */
 (function (root) {
   const DYR = {
-    rabbit: ['kaninen', 'kaniner'],
-    hedgehog: ['pinnsvinet', 'pinnsvin'],
-    duck: ['andungen', 'andunger'],
-    frog: ['frosken', 'frosker'],
-    pig: ['grisen', 'griser'],
-    turtle: ['skilpadden', 'skilpadder'],
-    lamb: ['lammet', 'lam'],
-    fox: ['reven', 'rever'],
+    rabbit: ['kaninen', 'kaninene'],
+    hedgehog: ['pinnsvinet', 'pinnsvinene'],
+    duck: ['andungen', 'andungene'],
+    frog: ['frosken', 'froskene'],
+    pig: ['grisen', 'grisene'],
+    turtle: ['skilpadden', 'skilpaddene'],
+    lamb: ['lammet', 'lammene'],
+    fox: ['reven', 'revene'],
   };
   const STEDER = ['Blomsterenga', 'Eventyrskogen', 'Regnbuedalen'];
   const R = {

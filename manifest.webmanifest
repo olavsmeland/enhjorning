@@ -1,0 +1,14 @@
+{
+  "name": "Enhjørning-eventyret",
+  "short_name": "Enhjørning",
+  "lang": "nb",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#92d05c",
+  "theme_color": "#92d05c",
+  "icons": [
+    { "src": "ikon.png", "sizes": "360x360", "type": "image/png", "purpose": "any" }
+  ]
+}
