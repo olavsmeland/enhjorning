@@ -162,6 +162,41 @@
   .range-labels { display: flex; justify-content: space-between; font-size: 14px; color: var(--ink-soft); }
   .tips { margin: 0; padding-left: 22px; font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
   .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  /* Kameraoppsettet skal alltid få plass uten rulling: bildet og panelet side om side,
+     og bildet krymper etter skjermhøyden (testerne fant Start-knappen utenfor skjermen) */
+  #camsetup .cam-layout { flex-wrap: nowrap; }
+  #camPreview { flex: none; width: min(640px, 54vw, calc((100dvh - 190px) * 4 / 3)); }
+  #camsetup .cam-side { min-width: 0; }
+  @media (max-height: 820px) {
+    #camsetup .card.wide { padding-top: 14px; padding-bottom: 14px; }
+    #camsetup h2 { font-size: 30px; margin-bottom: 10px; }
+    #camsetup #camPreview { width: min(640px, 54vw, calc((100dvh - 120px) * 4 / 3)); }
+    #camsetup .cam-side { gap: 8px; }
+    #camsetup .status { font-size: 18px; min-height: 0; padding: 8px 12px; }
+    #camsetup .stars { font-size: 40px; }
+    #camsetup .tip-big { font-size: 20px; }
+    #camsetup .arms-check { font-size: 16px; padding: 6px 10px; }
+    #camsetup .cam-side label { font-size: 15px; gap: 3px; }
+    #camsetup .tips { font-size: 14px; line-height: 1.4; }
+    #camsetup .tips li:nth-child(n+3) { display: none; }
+  }
+  @media (max-height: 520px) {
+    #camsetup .card.wide { padding: 8px 14px 10px; }
+    #camsetup h2 { font-size: 20px; margin: 0 0 6px; }
+    #camsetup .cam-layout { gap: 12px; }
+    #camsetup #camPreview { width: min(52vw, calc((100dvh - 84px) * 4 / 3)); border-radius: 16px; box-shadow: 0 0 0 3px #fff; }
+    #camsetup .cam-side { gap: 5px; }
+    #camsetup .status { font-size: 13px; padding: 5px 8px; border-radius: 12px; }
+    #camsetup .stars { font-size: 24px; letter-spacing: 4px; }
+    #camsetup .tip-big { font-size: 15px; }
+    #camsetup .arms-check { font-size: 12px; padding: 4px 8px; border-radius: 10px; }
+    #camsetup .cam-side label { font-size: 12px; gap: 2px; }
+    #camsetup .cam-side select { font-size: 13px; padding: 3px 6px; border-radius: 10px; }
+    #camsetup .range-labels { font-size: 11px; }
+    #camsetup .tips { display: none; }
+    #camsetup .btn-row button.big.short { min-width: 110px; min-height: 42px; font-size: 18px; padding: 6px 14px 8px; }
+    #camsetup .btn-row button.small { font-size: 13px; padding: 5px 10px; }
+  }
 
   button { touch-action: manipulation; }
 
@@ -229,7 +264,7 @@
 
   /* Snu telefonen */
   .rotate-hint { display: none; }
-  @media (orientation: portrait) and (max-width: 600px) {
+  @media (orientation: portrait) and (max-width: 600px), (orientation: portrait) and (pointer: coarse) {
     .rotate-hint {
       display: flex; position: fixed; inset: 0; z-index: 30; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; text-align: center; padding: 24px;
@@ -551,7 +586,7 @@
 </div>
 
 <!-- Snu telefonen -->
-<div class="rotate-hint"><div class="phone">📱</div><div>Snu telefonen på siden</div></div>
+<div class="rotate-hint"><div class="phone">📱</div><div>Snu skjermen på siden</div></div>
 
 <!-- Pause -->
 <div id="pause" class="overlay hidden">

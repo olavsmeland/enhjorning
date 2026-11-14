@@ -16,35 +16,41 @@
     fox: ['reven', 'revene'],
   };
   const STEDER = ['Blomsterenga', 'Eventyrskogen', 'Regnbuedalen'];
+  // Muntlig, varm norsk slik en voksen sier det til et barn (gjennomgått av manus-/QA-tester
+  // 14.11.2026). Lydord som «Wiii!» og enkeltord er byttet ut der det ga kunstig tale.
   const R = {
-    hei: 'Hei!',
-    start: 'Hei! Hopp over kaninene, og samle hjerter!',
+    hei: 'Hei hei!',
+    start: 'Hei! Nå skal vi hoppe over kaninene og samle hjerter!',
+    // Tre versjoner av «Hopp!» som veksler, så det ikke høres likt ut hver gang
     hopp: 'Hopp!',
-    vent_1: 'Hopp, hopp!',
-    vent_2: 'Kan du hoppe?',
-    vent_3: 'Hopp høyt!',
-    trykk_1: 'Trykk på hopp-knappen!',
+    hopp_2: 'Hopp nå!',
+    hopp_3: 'Klar, ferdig, hopp!',
+    vent_1: 'Kom igjen, hopp!',
+    vent_2: 'Skal vi hoppe nå?',
+    vent_3: 'Hopp så høyt du kan!',
+    trykk_1: 'Trykk på den rosa knappen!',
     trykk_2: 'Trykk på den store knappen!',
     ros_1: 'Bra hoppa!',
-    ros_2: 'Supert!',
-    ros_3: 'Wiii!',
+    ros_2: 'Det var supert!',
+    ros_3: 'Oi, så høyt!',
     ros_4: 'Så flink du er!',
-    ros_5: 'Hurra!',
-    ros_6: 'Kjempebra!',
-    regnbue: 'Regnbue!',
-    maal: 'Hurra! Du kom i mål!',
+    ros_5: 'Du klarte det!',
+    ros_6: 'Kjempebra, du!',
+    regnbue: 'Gjennom regnbuen!',
+    maal: 'Hurra, du kom i mål!',
     paa_rad: 'Så mange hjerter på rad!',
     turbo: 'Turbo! Nå flyr vi!',
-    turbo_slutt: 'Wiii, det var gøy!',
+    turbo_slutt: 'Det var gøy å fly!',
     // Kamera: armene ut som vinger mens man flyr
+    kamera_start: 'Hopp tre ganger, så starter vi!',
     armer_start: 'Strekk ut armene som vinger!',
-    tjohei: 'Tjohei!',
+    tjohei: 'Ja, sånn ja!',
     armer_fugl: 'Du flyr som en fugl!',
-    armer_igjen: 'Armene ut, så flyr vi lenger!',
-    // Rekorder, dyrealbumet og pandaen
-    rekord: 'Ny rekord!',
-    nytt_i_albumet: 'Et nytt dyr i albumet!',
-    panda_laast_opp: 'Hurra! Nå kan du være panda!',
+    armer_igjen: 'Ut med armene, så flyr vi lenger!',
+    // Rekorder, dyrealbumet og det hemmelige dyret (pandaen)
+    rekord: 'Det er ny rekord!',
+    nytt_i_albumet: 'Du har fått et nytt dyr i albumet!',
+    panda_laast_opp: 'Du fant det hemmelige dyret! Nå kan du være panda!',
     hei_panda: 'Hei, panda!',
     hei_enhjorning: 'Hei, enhjørning!',
   };
@@ -53,7 +59,7 @@
     const [def, pl] = DYR[kind];
     R['hopp_over_' + kind] = 'Hopp over ' + def + '!';
     R['naa_' + kind] = 'Nå skal vi hoppe over ' + pl + '!';
-    R['neste_' + kind] = 'Neste gang skal vi hoppe over ' + pl + '!';
+    R['neste_' + kind] = 'Nå venter ' + pl + ' på oss!';
   }
   root.REPLIKKER = R;
 })(typeof window !== 'undefined' ? window : globalThis);

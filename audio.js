@@ -52,6 +52,7 @@ window.Sfx = (() => {
     g.gain.value = o.vol == null ? 1 : o.vol;
     src.connect(g); g.connect(o.bus || sfxBus);
     src.start(ac.currentTime + (o.delay || 0));
+    src._g = g;
     return src;
   }
   function fx(name, o) {
@@ -335,15 +336,12 @@ window.Sfx = (() => {
     try { for (let s = 0; s < 64; s++) playStep(s, 0, song, 0.25); } finally { warming = false; }
   }
 
-  // Musikk fra fil (én for hvert sted). Når låten nærmer seg slutten, starter den på nytt
-  // med en myk krysstoning, så man aldri hører hvor den begynner igjen.
-  const XF = 2.5;                                  // sekunder krysstoning
-  const FILE_RATE = () => (turbo ? 1.08 : 1);      // turbo: litt raskere (og lysere) musikk
-  const fadeCurve = up => {
-    const c = new Float32Array(64);
-    for (let i = 0; i < 64; i++) { const x = i / 63; c[i] = up ? Math.sin(x * Math.PI / 2) : Math.cos(x * Math.PI / 2); }
-    return c;
-  };
+  // Musikk fra fil (én for hvert sted). Filene er laget som sømløse looper med
+  // verktoy/lag-musikkloop.py: et helt antall takter, skjøten lagt på taktslaget der musikken
+  // ligner mest. Loop-punktene står i lyder.json (info.musikkloop), og nettleseren looper
+  // sample-nøyaktig, så tempo og rytme aldri hakker. Musikken spilles alltid i normal fart:
+  // turbo gjør den bare litt lysere og sterkere (før ble den 8 % raskere, og når turboen sluttet,
+  // dro den seg ned i tempo og tone).
   // Like sterke låter: mål lydstyrken én gang og jevn den ut
   function musicLevel(buf) {
     if (buf._niva) return buf._niva;
@@ -354,8 +352,7 @@ window.Sfx = (() => {
     buf._niva = Math.max(0.6, Math.min(1.6, 0.17 / rms));
     return buf._niva;
   }
-  // Hvor låten egentlig spiller: hopp over stillhet i starten, og stopp før en eventuell
-  // nedtoning på slutten, så loopen aldri får et stille hull.
+  // Reserve uten loop-punkter: hopp over stillhet i starten og en eventuell nedtoning på slutten
   function musicSpan(buf) {
     if (buf._span) return buf._span;
     const d = buf.getChannelData(0), sr = buf.sampleRate, W = Math.floor(sr * 0.25), r = [];
@@ -371,54 +368,52 @@ window.Sfx = (() => {
     buf._span = { a: a * 0.25, z: Math.min(buf.duration, z * 0.25) };
     return buf._span;
   }
-  let fileMusic = null;
-  function musicLayer(fm, fade) {
-    const t = ac.currentTime, g = ac.createGain(), { a } = musicSpan(fm.buf);
-    if (fade > 0.05) g.gain.setValueCurveAtTime(fadeCurve(true), t, fade);
-    else g.gain.setValueAtTime(1, t);
-    g.connect(fm.out);
-    const src = ac.createBufferSource();
-    src.buffer = fm.buf; src.playbackRate.value = fm.rate;
-    src.connect(g); src.start(t, a);
-    return { src, g, pos: a, t, fading: false };
+  function loopPoints(b, buf) {
+    const L = pack && pack.info && pack.info.musikkloop && pack.info.musikkloop[String(b)];
+    if (L && L[1] > L[0] && L[1] <= buf.duration) return { a: L[0], z: L[1] };
+    return musicSpan(buf);
   }
+  let fileMusic = null;
   function startFileMusic(b, buf) {
     stopFileMusic();
-    const out = ac.createGain(), lvl = 1.4 * musicLevel(buf);
-    out.gain.setValueAtTime(0.0001, ac.currentTime);
-    out.gain.exponentialRampToValueAtTime(lvl, ac.currentTime + 1.2);
-    out.connect(musicBus);
-    fileMusic = { biome: b, buf, out, rate: FILE_RATE(), layers: [] };
-    fileMusic.layers.push(musicLayer(fileMusic, 0));
+    const t = ac.currentTime, lvl = 1.4 * musicLevel(buf), { a, z } = loopPoints(b, buf);
+    const out = ac.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(lvl, t + 1.2);
+    // Turbo: litt lysere klang (diskant) og litt sterkere, i samme tempo
+    const shine = ac.createBiquadFilter();
+    shine.type = 'highshelf'; shine.frequency.value = 3200; shine.gain.value = turbo ? 4 : 0;
+    const lift = ac.createGain(); lift.gain.value = turbo ? 1.12 : 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf; src.loop = true; src.loopStart = a; src.loopEnd = z;
+    src.connect(shine); shine.connect(lift); lift.connect(out); out.connect(musicBus);
+    src.start(t, a);
+    fileMusic = { biome: b, buf, out, src, shine, lift, turbo, t0: t, a, z };
   }
   function tickFileMusic() {
-    const fm = fileMusic, now = ac.currentTime;
-    for (const L of fm.layers) { L.pos += (now - L.t) * fm.rate; L.t = now; }
-    const rate = FILE_RATE();
-    if (rate !== fm.rate) {
-      fm.rate = rate;
-      for (const L of fm.layers) L.src.playbackRate.setTargetAtTime(rate, now, 0.3);
+    const fm = fileMusic;
+    if (fm.turbo !== turbo) {
+      fm.turbo = turbo;
+      const now = ac.currentTime;
+      fm.shine.gain.setTargetAtTime(turbo ? 4 : 0, now, 0.25);
+      fm.lift.gain.setTargetAtTime(turbo ? 1.12 : 1, now, 0.25);
     }
-    const cur = fm.layers[fm.layers.length - 1];
-    if (!cur.fading && cur.pos >= musicSpan(fm.buf).z - XF - 0.3) {
-      const fade = XF / fm.rate;
-      cur.fading = true;
-      cur.g.gain.cancelScheduledValues(now);
-      cur.g.gain.setValueCurveAtTime(fadeCurve(false), now, fade);
-      try { cur.src.stop(now + fade + 0.05); } catch (e) { /* ignorer */ }
-      fm.layers.push(musicLayer(fm, fade));
-    }
-    fm.layers = fm.layers.filter(L => !L.fading || L.pos < fm.buf.duration + 0.5);
   }
   function stopFileMusic() {
     if (!fileMusic) return;
-    const { out, layers } = fileMusic;
+    const { out, src } = fileMusic;
     fileMusic = null;
     try {
       out.gain.cancelScheduledValues(ac.currentTime);
       out.gain.setTargetAtTime(0.0001, ac.currentTime, 0.35);
-      for (const L of layers) L.src.stop(ac.currentTime + 1.5);
+      src.stop(ac.currentTime + 1.5);
     } catch (e) { /* ignorer */ }
+  }
+  function musicPos() {
+    const fm = fileMusic;
+    if (!fm) return 0;
+    const p = ac.currentTime - fm.t0, len = fm.z - fm.a;
+    return fm.a + (p % len);
   }
 
   function schedule() {
@@ -432,7 +427,7 @@ window.Sfx = (() => {
     if (fileMusic) stopFileMusic();
     if (!musicPlaying || musicPaused) return;
     const song = SONGS[biome] || SONGS[0];
-    const sd = 60 / (song.bpm * (turbo ? 1.18 : 1)) / 2;
+    const sd = 60 / song.bpm / 2;   // samme tempo også i turbo (turbo legger bare til rytmelyder)
     if (nextT < ac.currentTime) nextT = ac.currentTime + 0.05;
     while (nextT < ac.currentTime + 0.15) {
       playStep(step, nextT, song, sd);
@@ -459,18 +454,34 @@ window.Sfx = (() => {
 
   let voiceSrc = null;
   function duck(on) {
-    if (musicBus && ac) musicBus.gain.setTargetAtTime(musicOn ? (on ? MUSIC_VOL * 0.4 : MUSIC_VOL) : 0, ac.currentTime, 0.08);
+    // Musikken går litt ned mens Vilde snakker – mykt, så den ikke «pumper»
+    if (musicBus && ac) musicBus.gain.setTargetAtTime(musicOn ? (on ? MUSIC_VOL * 0.55 : MUSIC_VOL) : 0, ac.currentTime, on ? 0.06 : 0.3);
   }
   function stopVoice() {
     if (voiceSrc) {
       const s = voiceSrc;
       voiceSrc = null;
-      try { s.onended = null; s.stop(); } catch (e) { /* ignorer */ }
+      // Mykt ut (60 ms) i stedet for et brått kutt midt i et ord
+      try {
+        s.onended = null;
+        const t = ac.currentTime;
+        if (s._g) { s._g.gain.cancelScheduledValues(t); s._g.gain.setValueAtTime(s._g.gain.value, t); s._g.gain.linearRampToValueAtTime(0.0001, t + 0.06); }
+        s.stop(t + 0.07);
+      } catch (e) { /* ignorer */ }
     }
     duck(false);
   }
+  // En viktig replikk som kommer mens Vilde snakker, venter til hun er ferdig (i stedet for å
+  // kutte henne midt i en setning). Den gjelder bare en kort stund, så den ikke kommer for sent.
+  let queuedSay = null;
   function playSequence(list) {
-    if (!list.length) { voiceSrc = null; duck(false); return; }
+    if (!list.length) {
+      voiceSrc = null;
+      const q = queuedSay; queuedSay = null;
+      if (q && performance.now() < q.until) { playVoiceFiles(q.keys); return; }
+      duck(false);
+      return;
+    }
     duck(true);
     const [b, rate] = list[0];
     const src = playBuf(b, { bus: voiceBus, rate });
@@ -493,7 +504,11 @@ window.Sfx = (() => {
     // Viste det seg at spillet ikke har stemmefiler, brukes nettleserens stemme
     if (packState !== 'loading' && !hasVoiceFiles()) { pendingSay = null; speakBrowser(keys, true); return; }
     const urls = keys.map(k => getUrl('stemme', k));
-    if (ac && urls.every(u => bufs[u])) { pendingSay = null; playVoiceFiles(keys); return; }
+    if (ac && urls.every(u => bufs[u])) {
+      pendingSay = null;
+      if (voiceSrc) { queuedSay = { keys, until: performance.now() + 2500 }; return; }
+      playVoiceFiles(keys); return;
+    }
     if (performance.now() > until || urls.some(u => bufs[u] === false)) { pendingSay = null; return; }
     setTimeout(retryPending, 80);
   }
@@ -506,7 +521,11 @@ window.Sfx = (() => {
       if (!keys.length) return;
       if ((voiceSrc || pendingSay) && !priority) return;
       const ready = ac && packState === 'done' && keys.every(k => getBuf('stemme', k));
-      if (ready) { pendingSay = null; playVoiceFiles(keys); return; }
+      if (ready) {
+        pendingSay = null;
+        if (voiceSrc) { queuedSay = { keys, until: performance.now() + 2500 }; return; }
+        playVoiceFiles(keys); return;
+      }
       const fresh = !pendingSay;
       pendingSay = { keys, until: performance.now() + 5000 };
       if (fresh) setTimeout(retryPending, 80);
@@ -694,7 +713,7 @@ window.Sfx = (() => {
     },
     say,
     // Snakker Vilde nå (eller er en replikk på vei)?
-    speaking() { return !!(voiceSrc || pendingSay); },
+    speaking() { return !!(voiceSrc || pendingSay || queuedSay); },
     voiceName() {
       const urls = Object.values((pack && pack.stemme) || {}), info = (pack && pack.info) || {};
       if (urls.length && (info.stemmeKilde === 'elevenlabs' || urls.some(u => /\.mp3$/i.test(u)))) return 'ElevenLabs' + (info.stemme ? ': ' + info.stemme : '');
@@ -705,7 +724,7 @@ window.Sfx = (() => {
     // Til testing
     status() {
       const n = g => Object.values((pack && pack[g]) || {}).filter(u => bufs[u]).length;
-      return { pakke: !!pack, stemme: n('stemme'), effekter: n('effekter'), musikk: n('musikk'), filmusikk: !!fileMusic, musikklag: fileMusic ? fileMusic.layers.length : 0, musikkPos: fileMusic ? +fileMusic.layers[fileMusic.layers.length - 1].pos.toFixed(1) : 0, musikkSpenn: fileMusic ? musicSpan(fileMusic.buf) : null, snakker: !!voiceSrc, turbo, strenger: pluckCache.size };
+      return { pakke: !!pack, stemme: n('stemme'), effekter: n('effekter'), musikk: n('musikk'), filmusikk: !!fileMusic, musikkLoop: fileMusic ? [fileMusic.a, fileMusic.z, fileMusic.src.loop] : null, musikkPos: fileMusic ? +musicPos().toFixed(2) : 0, musikkFart: fileMusic ? fileMusic.src.playbackRate.value : 0, snakker: !!voiceSrc, turbo, strenger: pluckCache.size };
     },
     _ac: () => ac,
     _master: () => master,

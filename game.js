@@ -55,7 +55,10 @@
 
   // ================= Konstanter =================
   const PATH_HALF = 56;           // halv bredde på stien
-  const FEST_HEARTS = 60;         // hjerter som trengs for å komme i mål (én runde, drøyt ett minutt)
+  // Hjerter som trengs for å komme i mål. I Lett venter enhjørningen ved hvert dyr, så der trengs
+  // færre hjerter for at runden skal ta omtrent like lang tid (testet: 60 hjerter ga 2–3 min i Lett).
+  const FEST_HEARTS_LETT = 36, FEST_HEARTS_VANSKELIG = 48;
+  const festHearts = () => (settings.difficulty === 'lett' ? FEST_HEARTS_LETT : FEST_HEARTS_VANSKELIG);
   const TURBO_NEED = 12;          // hjerter på rad som gir turbo
   const TURBO_TIME = 7.5;         // sekunder enhjørningen flyr i turbo
   const ARMS_BONUS = 7;           // inntil så mange sekunder ekstra flytur når barnet holder armene ute (kamera)
@@ -136,6 +139,19 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  // Trekker fra en stokket bunke, så samme replikk ikke kommer to ganger på rad
+  function bunke(keys) {
+    let b = [], last = null;
+    return () => {
+      if (!b.length) {
+        b = keys.slice().sort(() => Math.random() - 0.5);
+        if (b[0] === last && b.length > 1) b.push(b.shift());
+      }
+      return (last = b.shift());
+    };
+  }
+  const nesteHopp = bunke(['hopp', 'hopp_2', 'hopp_3']);
+  const nesteRos = bunke(['ros_1', 'ros_2', 'ros_3', 'ros_4', 'ros_5', 'ros_6']);
   function hash(a, b, c) {
     let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul((c || 0) | 0, 1440662683);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -385,7 +401,8 @@
   function missHeart() {
     rowCount = 0;
     if (turbo > 0 || fest > 0 || turboMeter <= 0) return;
-    turboMeter = Math.max(0, turboMeter - (settings.difficulty === 'lett' ? 3 : 6));
+    if (settings.difficulty === 'lett') return;   // Lett: bare moro, ingen straff
+    turboMeter = Math.max(0, turboMeter - 6);
     meterShake = 0.5;
   }
 
@@ -451,8 +468,8 @@
     if (state === 'play') save.hearts++;
     hudPop = 1;
     if (fest <= 0) {
-      progress = Math.min(FEST_HEARTS, progress + 1);
-      if (progress >= FEST_HEARTS) { if (turbo > 0) goalPending = true; else reachGoal(); }
+      progress = Math.min(festHearts(), progress + 1);
+      if (progress >= festHearts()) { if (turbo > 0) goalPending = true; else reachGoal(); }
     }
   }
 
@@ -465,9 +482,9 @@
       save.jumped[r.kind] = (save.jumped[r.kind] || 0) + 1;
       Sfx.animal(r.kind);
       U.happy = 1;
-      if (praiseCD <= 0 && Math.random() < 0.55) {
-        praiseCD = 4;
-        Sfx.say(pick(['ros_1', 'ros_2', 'ros_3', 'ros_4', 'ros_5', 'ros_6']), false);
+      if (praiseCD <= 0 && Math.random() < 0.4) {
+        praiseCD = 9;
+        Sfx.say(nesteRos(), false);
       }
     }
   }
@@ -528,8 +545,8 @@
     } else {
       newAnimalPop = 6;
       banner = { text: b.name, sub: 'Nå skal vi hoppe over ' + a.pl + '!', animal: a.kind, t: 0, dur: 4.4 };
-      Sfx.say(['velkommen_' + biomeIdx, 'naa_' + a.kind], true);
-      talkUntil = time + 6;
+      Sfx.say('velkommen_' + biomeIdx, true);
+      talkUntil = time + 3.5;
       setTimeout(() => Sfx.animal(a.kind), 500);
     }
   }
@@ -806,14 +823,15 @@
             show = true;
             // Lett: Vilde sier «Hopp!» hver gang HOPP!-boblen kommer (venter til annen tale er ferdig).
             // Har hun nettopp sagt «Hopp over kaninen!», trengs det ikke.
-            if (nr.hinted && !nr.cued && time >= talkUntil && !Sfx.speaking()) { nr.cued = true; Sfx.say('hopp', true); }
+            // …men ikke rett før målet, da kommer «Hurra!» i stedet
+            if (nr.hinted && !nr.cued && time >= talkUntil && !Sfx.speaking() && progress < festHearts() - 1) { nr.cued = true; Sfx.say(nesteHopp(), true); }
           }
         } else if (!U.air) {
           // Litt før vinduet åpner, så et barns reaksjonstid lander midt i det
           const v = Math.max(80, U.speed), w = jumpWindow(nr.a, v);
           if (d <= w.max + v * 0.15 && d >= w.min) {
             show = true;
-            if (!nr.cued) { nr.cued = true; if (sayHopNext && time >= talkUntil) { sayHopNext = false; Sfx.say('hopp', true); } }
+            if (!nr.cued) { nr.cued = true; if (sayHopNext && time >= talkUntil) { sayHopNext = false; Sfx.say(nesteHopp(), true); } }
           }
         }
         if (d < showAt && !nr.hinted) {
@@ -830,7 +848,7 @@
       if (U.waiting) {
         waitAll += dt;
         waitTime += dt;
-        if (waitTime > 5) {
+        if (waitTime > 7) {
           waitTime = 0;
           Sfx.hint();
           Sfx.say(pick(isTouch && !useCamera ? ['trykk_1', 'trykk_2', 'vent_1'] : ['vent_1', 'vent_2', 'vent_3']), true);
@@ -1244,6 +1262,23 @@
     Art.draw(ctx, Art.cloudSprite(), x + 16, y + 6, 0.2);
   }
 
+  // ⏸-knapp i spillet (iPhone/iPad har ingen Esc-tast). Øverst til høyre, under kamerabildet med kamera.
+  const pauseBtn = () => ({ x: W - 72, y: useCamera ? 268 : 64, r: 46 });
+  function drawPauseBtn() {
+    if (state !== 'play') return;
+    const { x, y, r } = pauseBtn();
+    panel(x - r, y - r, r * 2, r * 2, r);
+    ctx.fillStyle = '#c03a7a';
+    rrPath(x - 17, y - 20, 12, 40, 5); ctx.fill();
+    rrPath(x + 5, y - 20, 12, 40, 5); ctx.fill();
+  }
+  function hitPause(e) {
+    const rc = canvas.getBoundingClientRect();
+    const px = (e.clientX - rc.left) * canvas.width / rc.width, py = (e.clientY - rc.top) * canvas.height / rc.height;
+    const lx = (px - view.ox) / view.k, ly = (py - view.oy) / view.k, b = pauseBtn();
+    return Math.hypot(lx - b.x, ly - b.y) < b.r + 18;   // litt romslig treffområde for små fingre
+  }
+
   function drawHUD() {
     // Hjerteteller
     const label = String(heartsTotal);
@@ -1266,7 +1301,7 @@
     drawTurboGauge(gx, 64);
 
     // Målbaren: regnbuen fylles opp mot målflagget
-    const left = gx + 46 + 24, right = W - (useCamera ? 290 : 24);
+    const left = gx + 46 + 24, right = W - (useCamera ? 290 : 130);
     const bw = Math.max(280, Math.min(720, right - left)), bh = 62, by = 33;
     const bx = clamp(W / 2 - bw / 2, left, Math.max(left, right - bw));
     panel(bx, by, bw, bh, 31);
@@ -1278,7 +1313,7 @@
     rrPath(tx0, ty - th / 2, tx1 - tx0, th, th / 2);
     ctx.fillStyle = '#f7ebf6'; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = '#ead3ee'; ctx.stroke();
-    const f = clamp(progressShown / FEST_HEARTS, 0, 1);
+    const FH = festHearts(), f = clamp(progressShown / FH, 0, 1);
     if (f > 0.001) {
       ctx.save();
       rrPath(tx0, ty - th / 2, tx1 - tx0, th, th / 2); ctx.clip();
@@ -1289,8 +1324,8 @@
       ctx.restore();
     }
     ctx.fillStyle = 'rgba(160,110,170,0.3)';
-    for (let k = 10; k < FEST_HEARTS; k += 10) {
-      const x = tx0 + (tx1 - tx0) * k / FEST_HEARTS;
+    for (let k = 10; k < FH; k += 10) {
+      const x = tx0 + (tx1 - tx0) * k / FH;
       ctx.fillRect(x - 1, ty - th / 2 + 5, 2, th - 10);
     }
     drawHeart(tx0 + (tx1 - tx0) * f, ty + Math.sin(time * 5) * 1.5, 36 + hudPop * 10);
@@ -1539,6 +1574,7 @@
       }
       drawFlyers();
       drawHUD();
+      drawPauseBtn();
       if (useCamera) drawCamPip();
     }
     ctx.restore();
@@ -1653,8 +1689,9 @@
     // Stjerner etter innsats: alle får minst én, færre krasj gir flere
     const stars = roundStars();
     $('goalMedal').innerHTML = '⭐'.repeat(stars) + '<span class="dim">⭐</span>'.repeat(3 - stars);
-    $('goalText').textContent = `Du hoppet over ${roundJumps} ${roundJumps === 1 ? a.name.toLowerCase() : a.pl} og samlet ${roundHearts} hjerter!` +
-      (roundBumps === 0 ? ' Ingen krasj! 🌟' : '');
+    $('goalText').textContent = (roundJumps > 0
+      ? `Du hoppet over ${roundJumps} ${roundJumps === 1 ? a.name.toLowerCase() : a.pl} og samlet ${roundHearts} hjerter!`
+      : `Du samlet ${roundHearts} hjerter!`) + (roundBumps === 0 && roundJumps > 0 ? ' Ingen krasj! 🌟' : '');
     $('goalNextName').textContent = nxt.name;
     $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
     // Albumet, og pandaen når alle dyrene er samlet
@@ -1665,14 +1702,17 @@
     if (news.unlocked) $('goalPanda').src = heroPortrait('panda');
     show(goalEl, true);
     goalReadyAt = performance.now() + 1300;
+    goalShownAt = performance.now();
     Sfx.say(news.unlocked ? ['panda_laast_opp'] : [news.newAnimal ? 'nytt_i_albumet' : 'ros_4', 'neste_' + nxt.kind], true);
     // Små barn trenger ikke finne knappen: neste runde starter av seg selv etter en stund
     clearTimeout(goalAuto);
     goalAuto = setTimeout(() => { goalReadyAt = 0; nextRound(); }, news.unlocked ? 16000 : 11000);
   }
-  let goalAuto = 0;
+  let goalAuto = 0, goalShownAt = 0;
   function nextRound() {
     if (state !== 'goal' || performance.now() < goalReadyAt) return;
+    // La Vilde snakke ferdig før neste runde (høyst 6 s), så hun ikke blir kuttet midt i
+    if (Sfx.speaking() && performance.now() < goalShownAt + 6000) { setTimeout(() => { if (state === 'goal') { goalReadyAt = 0; nextRound(); } }, 400); return; }
     clearTimeout(goalAuto);
     show(goalEl, false);
     blurActive();
@@ -1715,6 +1755,7 @@
     $('camSens').value = settings.sens;
     JumpCam.setSensitivity(settings.sens);
     await startCamera();
+    if (state === 'camsetup' && JumpCam.state.active) Sfx.say('kamera_start', true);
   }
 
   let lastStatus = '', lastArms = '';
@@ -1835,12 +1876,22 @@
   // Trykk hvor som helst på skjermen = hopp (hold fingeren på = høyere hopp)
   let jumpPointer = null;
   canvas.addEventListener('pointerdown', e => {
+    if (state === 'play' && hitPause(e)) { e.preventDefault(); Sfx.click(); pause(); return; }
     if (state === 'play') { e.preventDefault(); jumpPointer = e.pointerId; keys.up = true; jump(false); }
   });
   const endJumpPointer = e => { if (e.pointerId === jumpPointer) { jumpPointer = null; keys.up = false; } };
   window.addEventListener('pointerup', endJumpPointer);
   window.addEventListener('pointercancel', endJumpPointer);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { writeSave(); releaseKeys(); if (state === 'play') pause(); } });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      writeSave(); releaseKeys();
+      if (state === 'play') pause();
+      if (state === 'goal') clearTimeout(goalAuto);   // ikke start neste runde mens appen er skjult
+    } else if (state === 'goal') {
+      clearTimeout(goalAuto);
+      goalAuto = setTimeout(() => { goalReadyAt = 0; nextRound(); }, 11000);
+    }
+  });
   window.addEventListener('pagehide', writeSave);
 
   // ---------- Knapper på skjermen (iPhone / iPad) ----------
@@ -1862,7 +1913,11 @@
   holdButton($('tJump'), 'up', () => jump(false));
   $('btnNext').addEventListener('click', () => { goalReadyAt = 0; nextRound(); });
   // Et trykk hvor som helst på målkortet (også på dyrebildene) går videre – bortsett fra menyknappen
-  goalEl.addEventListener('click', e => { if (!e.target.closest('#btnGoalMenu')) nextRound(); });
+  goalEl.addEventListener('click', e => {
+    if (e.target.closest('#btnGoalMenu')) return;
+    if (!$('goalUnlock').classList.contains('hidden') && !e.target.closest('button')) return;   // pandakortet: velg med knappene
+    nextRound();
+  });
   $('btnGoalMenu').addEventListener('click', () => { clearTimeout(goalAuto); toMenu(); });
   // Pandaen er låst opp: «Bli panda!» på målkortet
   $('btnPandaNow').addEventListener('click', () => { settings.hero = 'panda'; saveSettings(); goalReadyAt = 0; nextRound(); });
@@ -1900,19 +1955,19 @@
       steps: ['Sveip ned fra <b>øverste høyre hjørne</b> av skjermen.',
         `Trykk på ${IC_MIRROR} <b>Skjermspeiling</b>.`,
         'Velg TV-en. Snu telefonen på tvers og start spillet.'],
-      cam: 'Sett telefonen liggende foran TV-en, med skjermen mot barnet.',
-      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). Telefonen og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel med adapter. Smale svarte kanter på TV-en er normalt.',
+      cam: 'Sett telefonen opp på tvers foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony), på samme Wi-Fi. Første gang viser TV-en en kode som du skriver inn. Stopp: samme sted, «Stopp speiling». Smale svarte kanter er normalt.',
     },
     ipad: {
       steps: ['Sveip ned fra <b>øverste høyre hjørne</b> av skjermen.',
         `Trykk på ${IC_MIRROR} <b>Skjermspeiling</b>.`,
         'Velg TV-en og start spillet. Det fyller hele skjermen av seg selv.'],
-      cam: 'Sett iPaden liggende foran TV-en, med skjermen mot barnet.',
-      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). iPaden og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel med adapter.',
+      cam: 'Sett iPaden opp på tvers foran TV-en, med skjermen mot barnet.',
+      need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony), på samme Wi-Fi. Første gang viser TV-en en kode som du skriver inn. Stopp: samme sted, «Stopp speiling». Uten AirPlay: HDMI-kabel med adapter.',
     },
     mac: {
       steps: [`Klikk på ${IC_CC} <b>Kontrollsenter</b> øverst til høyre på skjermen.`,
-        `Klikk på ${IC_MIRROR} <b>Skjermspeiling</b> og velg TV-en.`,
+        `Klikk på ${IC_MIRROR} <b>Skjermspeiling</b> og velg TV-en (velg «Speil» hvis du får spørsmål).`,
         'Start spillet. Det fyller hele skjermen av seg selv.'],
       cam: 'Sett Mac-en foran TV-en, med skjermen mot barnet.',
       need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony). Mac-en og TV-en må være på samme Wi-Fi. Uten AirPlay: bruk HDMI-kabel.',
@@ -1921,7 +1976,7 @@
       steps: ['Sveip ned fra toppen av skjermen to ganger.',
         'Trykk på <b>Smart View</b>, <b>Cast</b> eller <b>Skjermcasting</b>.',
         'Velg TV-en. Snu telefonen på tvers og start spillet.'],
-      cam: 'Sett telefonen liggende foran TV-en, med skjermen mot barnet.',
+      cam: 'Sett telefonen opp på tvers foran TV-en, med skjermen mot barnet.',
       need: 'Trenger en TV med Chromecast eller Google TV (eller Samsung-TV for Smart View), på samme Wi-Fi. Ellers: HDMI-kabel.',
     },
     pc: {

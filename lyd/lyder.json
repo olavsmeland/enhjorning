@@ -2,12 +2,26 @@
   "info": {
     "stemme": "Vilde",
     "talemodell": "eleven_turbo_v2_5",
-    "laget": "2026-11-14T18:41:13.399Z",
+    "laget": "2026-11-14T19:27:54.213Z",
     "stemmeKilde": "elevenlabs",
     "stemmeRate": 1,
     "ettOpptak": false,
     "musikk": "ElevenLabs Music",
-    "metode": "én replikk per opptak, samme innstillinger, likhetssjekk"
+    "metode": "én replikk per opptak, samme innstillinger, likhetssjekk",
+    "musikkloop": {
+      "0": [
+        1,
+        46.7146
+      ],
+      "1": [
+        1,
+        26.6005
+      ],
+      "2": [
+        1,
+        41.678
+      ]
+    }
   },
   "stemme": {
     "armer_fugl": "lyd/stemme/armer_fugl.m4a",
@@ -17,6 +31,8 @@
     "hei_enhjorning": "lyd/stemme/hei_enhjorning.m4a",
     "hei_panda": "lyd/stemme/hei_panda.m4a",
     "hopp": "lyd/stemme/hopp.m4a",
+    "hopp_2": "lyd/stemme/hopp_2.m4a",
+    "hopp_3": "lyd/stemme/hopp_3.m4a",
     "hopp_over_duck": "lyd/stemme/hopp_over_duck.m4a",
     "hopp_over_fox": "lyd/stemme/hopp_over_fox.m4a",
     "hopp_over_frog": "lyd/stemme/hopp_over_frog.m4a",
@@ -25,6 +41,7 @@
     "hopp_over_pig": "lyd/stemme/hopp_over_pig.m4a",
     "hopp_over_rabbit": "lyd/stemme/hopp_over_rabbit.m4a",
     "hopp_over_turtle": "lyd/stemme/hopp_over_turtle.m4a",
+    "kamera_start": "lyd/stemme/kamera_start.m4a",
     "maal": "lyd/stemme/maal.m4a",
     "naa_duck": "lyd/stemme/naa_duck.m4a",
     "naa_fox": "lyd/stemme/naa_fox.m4a",
@@ -68,8 +85,8 @@
   },
   "effekter": {},
   "musikk": {
-    "0": "lyd/musikk/0.mp3",
-    "1": "lyd/musikk/1.mp3",
-    "2": "lyd/musikk/2.mp3"
+    "0": "lyd/musikk/0.m4a",
+    "1": "lyd/musikk/1.m4a",
+    "2": "lyd/musikk/2.m4a"
   }
 }
