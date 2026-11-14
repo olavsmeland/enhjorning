@@ -1166,12 +1166,12 @@ window.Art = (() => {
     wing: { far: ['#f1ebff', '#d7c9f6'], near: ['#ffffff', '#e6dcff'], line: '#c4b0ec' },
     horn: ['#f7b73a', '#ffd970', '#fff6c8'], hornLine: '#d49526', glitter: false,
   };
-  const GOLD_RB = ['#ffd24d', '#ffe9a0', '#f5b42f', '#fff4cf', '#ffc93c', '#ffe27a'];
+  const GOLD_RB = ['#f5b82e', '#ffe17a', '#e8961a', '#fff0b3', '#f7c843', '#ffd35c'];
   const U_GOLD = {
     rb: GOLD_RB, rbD: GOLD_RB.map(c => mix(c, -0.3)), rbL: GOLD_RB.map(c => mix(c, 0.6)),
-    line: '#d9a83e', top: '#fffaf0', bot: '#ffe6a6', shade: '214,158,50', ear: ['#ffe2b8', '#ffc98a'],
-    legOut: ['#d6a648', '#e3b95c'], legIn: ['#fbe7b4', '#fff6dc'],
-    wing: { far: ['#fff3cf', '#f7d98a'], near: ['#fffaf0', '#ffe6a6'], line: '#d9a83e' },
+    line: '#c48a1c', top: '#fff2c4', bot: '#f2bf48', shade: '196,128,20', ear: ['#ffe0a0', '#f5b85a'],
+    legOut: ['#c48a1c', '#d49a2a'], legIn: ['#f5cf72', '#ffe7a3'],
+    wing: { far: ['#ffe9a8', '#f2c14e'], near: ['#fff6d6', '#f7d27a'], line: '#c48a1c' },
     horn: ['#c7b6ff', '#f2ecff', '#ffffff'], hornLine: '#a68be0', glitter: true,
   };
   let UP = U_NORMAL;
@@ -1501,6 +1501,27 @@ window.Art = (() => {
     g.strokeStyle = DR.spikeLine; g.lineWidth = 2; g.lineJoin = 'round'; g.stroke();
     g.restore();
   }
+  function dWing(g, P, far) {
+    const gl = P.glide || 0;
+    g.save();
+    g.translate(far ? -2 : 6, -98);
+    g.rotate(-0.35 - 0.1 * gl + Math.sin(P.time * (9 - 5 * gl)) * 0.45 * (1 - 0.8 * gl));
+    const sc = P.wing * (far ? 0.85 : 1) * (1 + 0.3 * gl);
+    g.scale(sc, sc);
+    // vingeskjelett (tre «fingre») med hud imellom, som buer innover
+    const tips = [[-62, -70], [-30, -88], [6, -84]];
+    g.beginPath(); g.moveTo(0, 0);
+    g.lineTo(tips[0][0], tips[0][1]);
+    g.quadraticCurveTo(-40, -50, tips[1][0], tips[1][1]);
+    g.quadraticCurveTo(-14, -60, tips[2][0], tips[2][1]);
+    g.quadraticCurveTo(4, -40, 0, 0); g.closePath();
+    g.fillStyle = lin(g, 0, -88, 0, 0, far ? [[0, '#c9b6f5'], [1, '#9d84e6']] : [[0, '#e4d8ff'], [1, '#b39bff']]);
+    g.fill();
+    g.strokeStyle = '#7f62d6'; g.lineWidth = 3; g.lineJoin = 'round'; g.stroke();
+    g.lineCap = 'round'; g.lineWidth = 4;
+    for (const [x, y] of tips) { g.beginPath(); g.moveTo(0, 0); g.lineTo(x, y); g.stroke(); }
+    g.restore();
+  }
   function dBodyPath(g) {
     g.beginPath();
     g.moveTo(50, -64); g.ellipse(0, -64, 50, 34, 0, 0, TAU);
@@ -1522,7 +1543,7 @@ window.Art = (() => {
     g.fillStyle = lin(g, 0, tp[1] - 12, 0, tp[1] + 10, [[0, '#ffb3d1'], [1, '#ff4d88']]); g.fill();
     g.strokeStyle = '#d6336f'; g.lineWidth = 2; g.stroke();
 
-    if (P.wing > 0.02) uWing(g, P, true);
+    if (P.wing > 0.02) dWing(g, P, true);
     dLeg(g, P, 0); dLeg(g, P, 2);
 
     // rygg-pigger (bak kroppen, så de stikker opp)
@@ -1605,7 +1626,7 @@ window.Art = (() => {
       circle(g, hx - 4, hy - 46, 22); g.fill();
       g.restore();
     }
-    if (P.wing > 0.02) uWing(g, P, false);
+    if (P.wing > 0.02) dWing(g, P, false);
   }
 
   // ---------------- Logo til menyen ----------------

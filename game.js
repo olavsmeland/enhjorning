@@ -15,6 +15,11 @@
   let W = 1600;
   let view = { k: 1, ox: 0, oy: 0 };
   let animalBoost = 1;      // dyrene tegnes litt større på små skjermer (telefon)
+  // Trygg sone (iPhone: hakk/«øy» og avrundede hjørner), i spillets egne enheter
+  let safe = { l: 0, r: 0, t: 0, b: 0 };
+  const safeProbe = document.createElement('div');
+  safeProbe.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(safeProbe);
 
   function resize() {
     const cw = Math.max(1, window.innerWidth), ch = Math.max(1, window.innerHeight);
@@ -28,6 +33,8 @@
     view = { k, ox: (canvas.width - W * k) / 2, oy: (canvas.height - H * k) / 2 };
     Art.setScale(k * 1.1);
     animalBoost = ch < 520 ? 1.2 : 1;
+    const cs = getComputedStyle(safeProbe), f = (canvas.width / cw) / k, px = v => (parseFloat(v) || 0) * f;
+    safe = { l: px(cs.paddingLeft), r: px(cs.paddingRight), t: px(cs.paddingTop), b: px(cs.paddingBottom) };
   }
   window.addEventListener('resize', resize);
   resize();
@@ -108,9 +115,10 @@
   const PATH_HALF = 56;           // halv bredde på stien
   // Hjerter som trengs for å komme i mål. I Lett venter enhjørningen ved hvert dyr, så der trengs
   // færre hjerter for at runden skal ta omtrent like lang tid (testet: 60 hjerter ga 2–3 min i Lett).
-  const FEST_HEARTS_LETT = 36, FEST_HEARTS_VANSKELIG = 48;
+  const FEST_HEARTS_LETT = 36, FEST_HEARTS_VANSKELIG = 60;
   const festHearts = () => (settings.difficulty === 'lett' ? FEST_HEARTS_LETT : FEST_HEARTS_VANSKELIG);
-  const TURBO_NEED = 12;          // hjerter på rad som gir turbo
+  // Hjerter på rad som gir turbo (Vanskelig krever flere)
+  const turboNeed = () => (settings.difficulty === 'lett' ? 12 : 16);
   const TURBO_TIME = 7.5;         // sekunder enhjørningen flyr i turbo
   const ARMS_BONUS = 7;           // inntil så mange sekunder ekstra flytur når barnet holder armene ute (kamera)
   const CELEBRATE_TIME = 2.8;     // sekunder med feiring før målkortet vises
@@ -195,7 +203,8 @@
     let b = [], last = null;
     return () => {
       if (!b.length) {
-        b = keys.slice().sort(() => Math.random() - 0.5);
+        b = keys.slice();
+        for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }   // Fisher–Yates
         if (b[0] === last && b.length > 1) b.push(b.shift());
       }
       return (last = b.shift());
@@ -445,7 +454,7 @@
     if (turbo <= 0 && fest <= 0) {
       turboMeter++;
       meterPop = 1;
-      if (turboMeter >= TURBO_NEED) startTurbo();
+      if (turboMeter >= turboNeed()) startTurbo();
     }
   }
 
@@ -579,7 +588,10 @@
     const ny = nextSecret();
     if (ny) {
       const [har, trengs] = kravFremdrift(ny);
-      if (har >= trengs) { save.unlocked[ny.id] = true; if (ny.id === 'panda') save.panda = true; goalNews.unlocked = ny.id; }
+      if (har >= trengs) {
+        save.unlocked[ny.id] = true; if (ny.id === 'panda') save.panda = true; goalNews.unlocked = ny.id;
+        settings.hero = ny.id; saveSettings(); nyFigur = true;
+      }
     }
     writeSave();
     fest = 1;
@@ -608,8 +620,9 @@
     } else {
       newAnimalPop = 6;
       banner = { text: b.name, sub: 'Nå skal vi hoppe over ' + a.plDef + '!', animal: a.kind, t: 0, dur: 4.4 };
-      Sfx.say('velkommen_' + biomeIdx, true);
-      talkUntil = time + 3.5;
+      Sfx.say(nyFigur ? [HEI[hero()], 'velkommen_' + biomeIdx] : 'velkommen_' + biomeIdx, true);
+      talkUntil = time + (nyFigur ? 5 : 3.5);
+      nyFigur = false;
       setTimeout(() => Sfx.animal(a.kind), 500);
     }
   }
@@ -1327,7 +1340,7 @@
   }
 
   // ⏸-knapp i spillet (iPhone/iPad har ingen Esc-tast). Øverst til høyre, under kamerabildet med kamera.
-  const pauseBtn = () => ({ x: W - 72, y: useCamera ? 268 : 64, r: 46 });
+  const pauseBtn = () => ({ x: W - 72 - safe.r, y: (useCamera ? 268 : 64) + safe.t, r: 46 });
   function drawPauseBtn() {
     if (state !== 'play') return;
     const { x, y, r } = pauseBtn();
@@ -1344,6 +1357,7 @@
   }
 
   function drawHUD() {
+    ctx.save(); ctx.translate(safe.l, safe.t);   // holder seg unna hakket
     // Hjerteteller
     const label = String(heartsTotal);
     ctx.font = `600 58px ${FONT}`;
@@ -1365,7 +1379,7 @@
     drawTurboGauge(gx, 64);
 
     // Målbaren: regnbuen fylles opp mot målflagget
-    const left = gx + 46 + 24, right = W - (useCamera ? 290 : 130);
+    const left = gx + 46 + 24, right = W - safe.l - safe.r - (useCamera ? 290 : 130);
     const bw = Math.max(280, Math.min(720, right - left)), bh = 62, by = 33;
     const bx = clamp(W / 2 - bw / 2, left, Math.max(left, right - bw));
     panel(bx, by, bw, bh, 31);
@@ -1394,6 +1408,7 @@
     }
     drawHeart(tx0 + (tx1 - tx0) * f, ty + Math.sin(time * 5) * 1.5, 36 + hudPop * 10);
     drawFlag(tx1 + 34, ty + 2);
+    ctx.restore();
     drawCollection();
   }
 
@@ -1430,12 +1445,12 @@
       ctx.lineWidth = 10; ctx.strokeStyle = RAINBOW[Math.floor(time * 10) % 6];
       ctx.beginPath(); ctx.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + clamp(turbo / TURBO_TIME, 0, 1) * Math.PI * 2); ctx.stroke();
     } else {
-      const seg = Math.PI * 2 / TURBO_NEED, gap = 0.13;
-      for (let i = 0; i < TURBO_NEED; i++) {
+      const seg = Math.PI * 2 / turboNeed(), gap = 0.13;
+      for (let i = 0; i < turboNeed(); i++) {
         const a0 = -Math.PI / 2 + i * seg + gap / 2;
         const on = i < turboMeter;
         ctx.lineWidth = on ? 10 : 8;
-        ctx.strokeStyle = on ? RAINBOW[Math.floor(i / TURBO_NEED * RAINBOW.length)] : '#efe3f7';
+        ctx.strokeStyle = on ? RAINBOW[Math.floor(i / turboNeed() * RAINBOW.length)] : '#efe3f7';
         ctx.beginPath(); ctx.arc(0, 0, R, a0, a0 + seg - gap); ctx.stroke();
       }
     }
@@ -1603,7 +1618,7 @@
   }
 
   function drawCamPip() {
-    const x = W - 268, y = 14, w = 252, h = 189;
+    const x = W - 268 - safe.r, y = 14 + safe.t, w = 252, h = 189;
     ctx.save();
     ctx.shadowColor = 'rgba(80,30,110,0.35)'; ctx.shadowBlur = 18 * view.k; ctx.shadowOffsetY = 6 * view.k;
     rrPath(x, y, w, h, 18); ctx.fillStyle = '#2a2140'; ctx.fill();
@@ -1662,7 +1677,11 @@
       const sec = nextSecret();
       const knapper = HEROES.filter(h => unlocked(h.id)).map(h =>
         `<button class="hero-btn pic${h.id === hero() ? ' on' : ''}" data-hero="${h.id}" aria-label="${h.navn}" title="${h.navn}"><img src="${heroPortrait(h.id)}" alt=""></button>`);
-      if (sec) knapper.push(`<button class="hero-btn locked" data-hero="hemmelig"><span class="mystery" aria-hidden="true">?</span><span>Hemmelig dyr<small>🔒 ${kravTekst(sec)}</small></span></button>`);
+      if (sec) {
+        const [har, trengs] = kravFremdrift(sec);
+        const krav = har >= trengs ? '✨ Kom i mål for å se!' : '🔒 ' + kravTekst(sec);
+        knapper.push(`<button class="hero-btn locked" data-hero="hemmelig"><span class="mystery" aria-hidden="true">?</span><span>Hemmelig dyr<small>${krav}</small></span></button>`);
+      }
       $('heroes').innerHTML = knapper.join('');
     } catch (e) { console.warn(e); }
   }
@@ -1715,7 +1734,7 @@
   // ---------- Dyrealbum ----------
   function renderAlbum() {
     const pn = aktivProfil().navn;
-    $('albumTitle').textContent = pn ? `📖 ${/s$/i.test(pn) ? pn + "'" : pn + 's'} dyrealbum` : '📖 Dyrealbum';
+    $('albumTitle').textContent = pn ? `📖 ${/[sxz]$/i.test(pn) ? pn + "'" : pn + 's'} dyrealbum` : '📖 Dyrealbum';
     const n = doneCount(), N = ANIMALS.length;
     $('albumLead').textContent = n === 0 ? 'Kom i mål med et dyr, så havner det i albumet!'
       : n < N ? `Du har ${n} av ${N} dyr. Kom i mål med et nytt dyr, så havner det her!` : 'Du har alle dyrene! 🎉';
@@ -1730,7 +1749,7 @@
     if (sec) {
       const [har, trengs] = kravFremdrift(sec);
       $('albumHero').innerHTML = `<span class="mystery big" aria-hidden="true">?</span><div><b>Hemmelig dyr 🔒</b><br>` +
-        (sec.krav.album ? 'Samle alle dyrene i albumet' : `Samle ${trengs} hjerter`) + ', så får du et hemmelig dyr å spille med!' +
+        (har >= trengs ? 'Du har nok! Kom i mål, så får du se hvem det er.' : (sec.krav.album ? 'Samle alle dyrene i albumet' : `Samle ${trengs} hjerter`) + ', så får du et hemmelig dyr å spille med!') +
         `<div class="bar"><i style="width:${Math.round(har / trengs * 100)}%"></i></div>${har} av ${trengs} ${sec.krav.album ? 'dyr' : 'hjerter'}${funnetTxt}</div>`;
     } else {
       $('albumHero').innerHTML = `<img src="${heroPortrait('gull')}" alt=""><div><b>Du har funnet alle de hemmelige dyrene! 🎉</b><br>Velg hvem du vil være i menyen.${funnetTxt}</div>`;
@@ -1764,18 +1783,26 @@
     $('goalMedal').innerHTML = '⭐'.repeat(stars) + '<span class="dim">⭐</span>'.repeat(3 - stars);
     $('goalText').textContent = (roundJumps > 0
       ? `Du hoppet over ${roundJumps} ${roundJumps === 1 ? a.name.toLowerCase() : a.pl} og samlet ${roundHearts} hjerter!`
-      : `Du samlet ${roundHearts} hjerter!`) + (roundBumps === 0 && roundJumps > 0 ? ' Ingen krasj! 🌟' : '');
+      : `Du samlet ${roundHearts} hjerter!`) + (roundBumps === 0 && roundJumps > 0 ? ' Ingen krasj! 🌟' : '') +
+      (settings.difficulty !== 'lett' && roundBumps > 0 ? ` ${roundBumps} krasj – uten krasj blir det tre stjerner.` : '');
     $('goalNextName').textContent = nxt.name;
     $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
     // Albumet, og pandaen når alle dyrene er samlet
     const news = goalNews || {}, n = doneCount();
-    $('goalAlbum').textContent = news.newAnimal ? `📖 Nytt dyr i albumet! (${n} av ${ANIMALS.length})` : `📖 Albumet: ${n} av ${ANIMALS.length} dyr`;
+    const sec = nextSecret();
+    if (!news.newAnimal && sec && !sec.krav.album) {
+      const [har, trengs] = kravFremdrift(sec);
+      $('goalAlbum').textContent = har >= trengs ? '✨ Neste gang du kommer i mål, får du se det hemmelige dyret!' : `🔒 Hemmelig dyr: ${har} av ${trengs} hjerter`;
+    } else {
+      $('goalAlbum').textContent = news.newAnimal ? `📖 Nytt dyr i albumet! (${n} av ${ANIMALS.length})` : `📖 Albumet: ${n} av ${ANIMALS.length} dyr`;
+    }
     show($('goalUnlock'), !!news.unlocked);
     show($('goalAnimals'), !news.unlocked);
     if (news.unlocked) {
       const h = heroById(news.unlocked);
       $('goalPanda').src = heroPortrait(h.id);
-      $('goalUnlockTitle').textContent = `Det hemmelige dyret er ${h.ub}! ${h.emoji}`;
+      $('goalUnlockTitle').textContent = `Det hemmelige dyret er ${h.ub}!\u00a0${h.emoji}`;
+      $('goalPanda').alt = h.best;
       $('btnPandaNow').textContent = `${h.emoji} Bli ${h.navn.toLowerCase()}!`;
       $('btnPandaNow').dataset.hero = h.id;
     }
@@ -1787,11 +1814,12 @@
     clearTimeout(goalAuto);
     goalAuto = setTimeout(() => { goalReadyAt = 0; nextRound(); }, news.unlocked ? 16000 : 11000);
   }
-  let goalAuto = 0, goalShownAt = 0;
-  function nextRound() {
+  let goalAuto = 0, goalShownAt = 0, nyFigur = false;
+  function nextRound(nå) {
     if (state !== 'goal' || performance.now() < goalReadyAt) return;
+    if (nå) Sfx.hush();
     // La Vilde snakke ferdig før neste runde (høyst 6 s), så hun ikke blir kuttet midt i
-    if (Sfx.speaking() && performance.now() < goalShownAt + 6000) { setTimeout(() => { if (state === 'goal') { goalReadyAt = 0; nextRound(); } }, 400); return; }
+    if (!nå && Sfx.speaking() && performance.now() < goalShownAt + 6000) { setTimeout(() => { if (state === 'goal') { goalReadyAt = 0; nextRound(); } }, 400); return; }
     clearTimeout(goalAuto);
     show(goalEl, false);
     blurActive();
@@ -1938,6 +1966,7 @@
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
     if (e.key === 'Escape' && !$('tvHelp').classList.contains('hidden')) { show($('tvHelp'), false); return; }
+    if (e.key === 'Escape' && !$('profiles').classList.contains('hidden')) { if (redigerer) renderProfiler(); else closeProfiler(); return; }
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
       if (state === 'play') pause(); else if (state === 'pause') resume();
       return;
@@ -1991,16 +2020,15 @@
   holdButton($('tSlow'), 'left');
   holdButton($('tFast'), 'right');
   holdButton($('tJump'), 'up', () => jump(false));
-  $('btnNext').addEventListener('click', () => { goalReadyAt = 0; nextRound(); });
+  $('btnNext').addEventListener('click', e => { e.stopPropagation(); goalReadyAt = 0; nextRound(true); });
   // Et trykk hvor som helst på målkortet (også på dyrebildene) går videre – bortsett fra menyknappen
   goalEl.addEventListener('click', e => {
     if (e.target.closest('#btnGoalMenu')) return;
-    if (!$('goalUnlock').classList.contains('hidden') && !e.target.closest('button')) return;   // pandakortet: velg med knappene
     nextRound();
   });
   $('btnGoalMenu').addEventListener('click', () => { clearTimeout(goalAuto); toMenu(); });
   // Pandaen er låst opp: «Bli panda!» på målkortet
-  $('btnPandaNow').addEventListener('click', e => { settings.hero = e.currentTarget.dataset.hero || 'panda'; saveSettings(); goalReadyAt = 0; nextRound(); });
+  $('btnPandaNow').addEventListener('click', e => { e.stopPropagation(); settings.hero = e.currentTarget.dataset.hero || 'panda'; saveSettings(); goalReadyAt = 0; nextRound(true); });
   $('btnAlbum').addEventListener('click', openAlbum);
   $('btnAlbumBack').addEventListener('click', closeAlbum);
   // Trykk på et dyr i albumet: dyrelyden og Vilde sier hva det er (låste dyr: «Hvem kan det være?»)
@@ -2099,7 +2127,7 @@
   // ---------- Hvem spiller? (søsken) ----------
   const profEl = $('profiles');
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const visNavn = p => p.navn || (ANIMALS.find(a => a.kind === p.ikon) || ANIMALS[0]).name;
+  const visNavn = p => p.navn || 'Spiller ' + (profiler.liste.indexOf(p) + 1 || profiler.liste.length + 1);
   function syncProfilKnapp() {
     const p = aktivProfil();
     try { $('profileImg').src = portrait(p.ikon); } catch (e) { /* ignorer */ }
@@ -2125,7 +2153,8 @@
   function closeProfiler() { blurActive(); show(profEl, false); show(menuEl, true); syncMenu(); }
   function redigerProfil(id) {
     redigerer = id;
-    const p = id === 'ny' ? { navn: '', ikon: ANIMALS[profiler.liste.length % ANIMALS.length].kind } : profiler.liste.find(x => x.id === id);
+    const brukt = profiler.liste.map(x => x.ikon);
+    const p = id === 'ny' ? { navn: '', ikon: (ANIMALS.find(a => !brukt.includes(a.kind)) || ANIMALS[0]).kind } : profiler.liste.find(x => x.id === id);
     $('profTitle').textContent = id === 'ny' ? 'Ny spiller' : 'Endre spiller';
     $('profNavn').value = p.navn || '';
     valgtIkon = p.ikon;
@@ -2133,6 +2162,7 @@
     slettKlar = 0; $('profDelete').classList.remove('sure'); $('profDelete').textContent = 'Slett spiller';
     show($('profDelete'), id !== 'ny' && profiler.liste.length > 1);
     show($('profGrid'), false); show($('profEdit'), true); show($('btnProfilesClose'), false);
+    if (id === 'ny' && !isTouch) setTimeout(() => $('profNavn').focus(), 50);
   }
   function velgProfil(id) {
     if (id !== profiler.aktiv) byttProfil(id);
@@ -2180,11 +2210,14 @@
       slettKlar = performance.now() + 4000;
       $('profDelete').classList.add('sure');
       $('profDelete').textContent = `Trykk igjen for å slette albumet til ${visNavn(p)}`;
+      setTimeout(() => { if (performance.now() > slettKlar) { $('profDelete').classList.remove('sure'); $('profDelete').textContent = 'Slett spiller'; } }, 4100);
       return;
     }
     profiler.liste = profiler.liste.filter(x => x.id !== p.id);
+    // Bytt først (byttProfil lagrer den gamle spilleren), og slett albumet etterpå
+    if (profiler.aktiv === p.id) byttProfil(profiler.liste[0].id);
     try { localStorage.removeItem(saveKey(p.id)); } catch (e) { /* ignorer */ }
-    if (profiler.aktiv === p.id) byttProfil(profiler.liste[0].id); else lagreProfiler();
+    lagreProfiler();
     renderProfiler();
   });
 

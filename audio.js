@@ -714,6 +714,8 @@ window.Sfx = (() => {
     say,
     // Snakker Vilde nå (eller er en replikk på vei)?
     speaking() { return !!(voiceSrc || pendingSay || queuedSay); },
+    // Stopp Vilde mykt (f.eks. når en forelder trykker «Neste dyr!»)
+    hush() { queuedSay = null; pendingSay = null; stopVoice(); duck(false); },
     voiceName() {
       const urls = Object.values((pack && pack.stemme) || {}), info = (pack && pack.info) || {};
       if (urls.length && (info.stemmeKilde === 'elevenlabs' || urls.some(u => /\.mp3$/i.test(u)))) return 'ElevenLabs' + (info.stemme ? ': ' + info.stemme : '');
