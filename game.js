@@ -1551,13 +1551,14 @@
 
   function syncMenu() {
     for (const b of $('segDifficulty').querySelectorAll('button')) b.classList.toggle('on', b.dataset.value === settings.difficulty);
-    // Velg figur: pandaen er låst til alle dyrene er i albumet
+    // Velg figur: pandaen er låst (og hemmelig) til alle dyrene er i albumet
     for (const b of $('heroes').querySelectorAll('button')) {
       b.classList.toggle('on', b.dataset.hero === hero());
       b.classList.toggle('locked', b.dataset.hero === 'panda' && !save.panda);
     }
-    // Låst panda: si hva som skal til (trykk på den viser albumet med hvor langt man har kommet)
-    $('heroPandaTxt').innerHTML = save.panda ? 'Panda' : 'Panda<small>🔒 Samle alle dyrene</small>';
+    // Låst panda = «Hemmelig dyr» med spørsmålstegn, så det blir en overraskelse (trykk viser albumet med fremdriften)
+    show($('heroPanda'), save.panda); show($('heroMystery'), !save.panda);
+    $('heroPandaTxt').innerHTML = save.panda ? 'Panda' : 'Hemmelig dyr<small>🔒 Samle alle dyrene</small>';
     try { $('heroUnicorn').src = heroPortrait('unicorn'); $('heroPanda').src = heroPortrait('panda'); } catch (e) { console.warn(e); }
   }
 
@@ -1619,7 +1620,7 @@
     }).join('');
     $('albumHero').innerHTML = save.panda
       ? `<img src="${heroPortrait('panda')}" alt=""><div><b>Pandaen er låst opp! 🐼</b><br>Velg «Panda» i menyen for å spille som panda.</div>`
-      : `<img src="${shadowPic('panda', heroPic('panda')).url}" alt=""><div><b>Pandaen 🔒</b><br>Samle alle dyrene i albumet, så kan du spille som panda!` +
+      : `<span class="mystery big" aria-hidden="true">?</span><div><b>Hemmelig dyr 🔒</b><br>Samle alle dyrene i albumet, så får du et hemmelig dyr å spille med!` +
         `<div class="bar"><i style="width:${Math.round(n / N * 100)}%"></i></div>${n} av ${N} dyr</div>`;
     const sek = v => String(v || 0).replace('.', ',');
     $('albumRecords').innerHTML =

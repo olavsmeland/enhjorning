@@ -282,6 +282,15 @@
   .hero-btn.on { background: #fff; color: var(--pink); font-weight: 600; box-shadow: 0 0 0 3px var(--pink-light), 0 3px 8px rgba(120,60,160,0.22); }
   .hero-btn.locked { cursor: default; }
   .hero-btn.locked img { filter: grayscale(1) brightness(1.2) opacity(0.5); }
+  /* Hemmelig dyr (pandaen før den er låst opp): et spørsmålstegn, så man ikke vet hva man får */
+  .mystery {
+    display: inline-grid; place-items: center; flex: none; width: 50px; height: 50px; margin: 0 4px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #d9c2ff, #8b5cf6 72%); color: #fff;
+    font-size: 34px; font-weight: 700; line-height: 1; text-shadow: 0 2px 0 rgba(60,20,110,0.25);
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), 0 3px 8px rgba(110,40,160,0.3);
+    animation: wiggle 1.6s ease-in-out infinite;
+  }
+  .mystery.big { width: 104px; height: 104px; margin: 0 6px; font-size: 68px; }
   .album-btn { padding: 4px 16px 4px 10px; min-height: 58px; }
   .album-btn .book { font-size: 30px; }
 
@@ -381,6 +390,8 @@
     .touch #tJump span { font-size: 32px; }
     .hero-btn { font-size: 14px; padding: 2px 10px 2px 4px; }
     .hero-btn img { width: 40px; height: 34px; }
+    .mystery { width: 34px; height: 34px; font-size: 23px; margin: 0 3px; }
+    .mystery.big { width: 64px; height: 64px; font-size: 42px; }
     .album-lead { font-size: 15px; margin: -4px 0 8px; }
     .album-grid { grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 8px; }
     .acard { padding: 6px 2px; border-radius: 16px; }
@@ -428,7 +439,7 @@
         <span class="label">Spill som</span>
         <div class="heroes" id="heroes">
           <button class="hero-btn" data-hero="unicorn"><img id="heroUnicorn" alt=""><span>Enhjørning</span></button>
-          <button class="hero-btn" data-hero="panda"><img id="heroPanda" alt=""><span id="heroPandaTxt">Panda</span></button>
+          <button class="hero-btn" data-hero="panda"><img id="heroPanda" alt=""><span class="mystery hidden" id="heroMystery" aria-hidden="true">?</span><span id="heroPandaTxt">Panda</span></button>
         </div>
         <button id="btnAlbum" class="hero-btn album-btn"><span class="book">📖</span><span>Dyrealbum</span></button>
       </div>
@@ -478,7 +489,7 @@
     <p class="goal-album" id="goalAlbum"></p>
     <div class="unlock hidden" id="goalUnlock">
       <img id="goalPanda" alt="Pandaen">
-      <div><b>Du har låst opp pandaen! 🐼</b><button id="btnPandaNow" class="big pink short">🐼 Bli panda!</button></div>
+      <div><b>Det hemmelige dyret er en panda! 🐼</b><button id="btnPandaNow" class="big pink short">🐼 Bli panda!</button></div>
     </div>
     <div class="goal-animals" id="goalAnimals">
       <figure><img id="goalDone" alt="Dyret du hoppet over"><figcaption>Ferdig!</figcaption></figure>
