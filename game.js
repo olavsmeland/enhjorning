@@ -40,6 +40,8 @@
     try { localStorage.setItem('enhjorning-innstillinger', JSON.stringify(settings)); } catch (e) { /* ignorer */ }
   }
   const settings = Object.assign({ difficulty: 'lett', music: true, voice: true, sens: 0.5, camId: '', hero: 'unicorn' }, loadSettings());
+  // Musikk og stemme er alltid på (valgene er fjernet fra menyen – vil man ha stille, skrur man ned lyden)
+  settings.music = true; settings.voice = true;
 
   // ================= Dyrealbum og rekorder (lagres på enheten) =================
   // done: dyr man har kommet i mål med · jumped: hvor mange ganger man har hoppet over hvert dyr
@@ -379,7 +381,7 @@
     }
   }
 
-  // Et hjerte i lufta gikk forbi: turbomåleren går litt ned (mer i «Litt vanskeligere»)
+  // Et hjerte i lufta gikk forbi: turbomåleren går litt ned (mer i «Vanskelig»)
   function missHeart() {
     rowCount = 0;
     if (turbo > 0 || fest > 0 || turboMeter <= 0) return;
@@ -1556,8 +1558,6 @@
     }
     $('heroPandaTxt').innerHTML = save.panda ? 'Panda' : `Panda<small>🔒 ${doneCount()} av ${ANIMALS.length} dyr</small>`;
     try { $('heroUnicorn').src = heroPortrait('unicorn'); $('heroPanda').src = heroPortrait('panda'); } catch (e) { console.warn(e); }
-    $('optMusic').checked = settings.music;
-    $('optVoice').checked = settings.voice;
   }
 
   function startGame(cam) {
@@ -1780,15 +1780,8 @@
     settings.difficulty = b.dataset.value; saveSettings(); syncMenu();
     Sfx.init(); Sfx.click();
   });
-  $('optMusic').addEventListener('change', e => { settings.music = e.target.checked; saveSettings(); Sfx.setMusic(settings.music); });
-  $('optVoice').addEventListener('change', e => {
-    settings.voice = e.target.checked; saveSettings();
-    Sfx.setVoice(settings.voice);
-    if (settings.voice) { Sfx.init(); Sfx.say('hei', true); }
-  });
   $('btnKeys').addEventListener('click', () => { goFullscreen(); startGame(false); });
   $('btnCam').addEventListener('click', openCamSetup);
-  $('btnFull').addEventListener('click', toggleFullscreen);
   $('btnResume').addEventListener('click', resume);
   $('btnToMenu').addEventListener('click', toMenu);
   $('camStart').addEventListener('click', () => { goFullscreen(); startGame(true); });
@@ -1879,13 +1872,10 @@
   });
 
   // Tilpass menyen: to valg – kamera eller fingeren (på Mac/PC uten berøringsskjerm: klikk eller mellomrom)
-  if (isTouch) {
-    $('helpText').innerHTML = 'Trykk hvor som helst for å hoppe – hold fingeren på for å hoppe høyere.<br>Knappene ◀ ▶ nede til venstre gir saktere eller fortere fart. 12 hjerter på rad gir ⚡ TURBO!';
-  } else {
+  if (!isTouch) {
     $('btnKeys').innerHTML = '<span class="ico">👆</span><span class="txt">Spill uten kamera<small>Klikk eller trykk mellomrom</small></span>';
   }
   const hasFullscreen = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
-  if (!hasFullscreen) $('btnFull').classList.add('hidden');
 
   // ---------- «Spill på TV»: enkel bruksanvisning for skjermspeiling, tilpasset enheten ----------
   const UA = navigator.userAgent;
