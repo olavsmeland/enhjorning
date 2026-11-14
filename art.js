@@ -1158,6 +1158,24 @@ window.Art = (() => {
     const a = Math.sin(P.phase + off);
     return [a * 0.62 * k, -1.0 * k * (0.5 + 0.5 * Math.sin(P.phase + off + 1.7))];
   }
+  // Enhjørningens farger. Gullenhjørningen (hemmelig figur) tegnes med samme kode og gullpalett.
+  const U_NORMAL = {
+    rb: RB, rbD: RB_D, rbL: RB_L,
+    line: '#c4adea', top: '#ffffff', bot: '#efe7fb', shade: '172,146,224', ear: ['#ffc7dd', '#ff9cc0'],
+    legOut: ['#b7a0dc', '#cab4ec'], legIn: ['#e6dcf6', '#ffffff'],
+    wing: { far: ['#f1ebff', '#d7c9f6'], near: ['#ffffff', '#e6dcff'], line: '#c4b0ec' },
+    horn: ['#f7b73a', '#ffd970', '#fff6c8'], hornLine: '#d49526', glitter: false,
+  };
+  const GOLD_RB = ['#ffd24d', '#ffe9a0', '#f5b42f', '#fff4cf', '#ffc93c', '#ffe27a'];
+  const U_GOLD = {
+    rb: GOLD_RB, rbD: GOLD_RB.map(c => mix(c, -0.3)), rbL: GOLD_RB.map(c => mix(c, 0.6)),
+    line: '#d9a83e', top: '#fffaf0', bot: '#ffe6a6', shade: '214,158,50', ear: ['#ffe2b8', '#ffc98a'],
+    legOut: ['#d6a648', '#e3b95c'], legIn: ['#fbe7b4', '#fff6dc'],
+    wing: { far: ['#fff3cf', '#f7d98a'], near: ['#fffaf0', '#ffe6a6'], line: '#d9a83e' },
+    horn: ['#c7b6ff', '#f2ecff', '#ffffff'], hornLine: '#a68be0', glitter: true,
+  };
+  let UP = U_NORMAL;
+
   function uLeg(g, P, i) {
     const hips = [[-24, -56], [-32, -54], [22, -56], [30, -54]];
     const far = i === 0 || i === 2;
@@ -1167,8 +1185,8 @@ window.Art = (() => {
     const fx = kx + Math.sin(a1 + a2) * 26, fy = ky + Math.cos(a1 + a2) * 26;
     g.lineCap = 'round'; g.lineJoin = 'round';
     g.beginPath(); g.moveTo(hx, hy); g.lineTo(kx, ky); g.lineTo(fx, fy);
-    g.strokeStyle = far ? '#b7a0dc' : '#cab4ec'; g.lineWidth = 17; g.stroke();
-    g.strokeStyle = far ? '#e6dcf6' : '#ffffff'; g.lineWidth = 11.5; g.stroke();
+    g.strokeStyle = far ? UP.legOut[0] : UP.legOut[1]; g.lineWidth = 17; g.stroke();
+    g.strokeStyle = far ? UP.legIn[0] : UP.legIn[1]; g.lineWidth = 11.5; g.stroke();
     g.save(); g.translate(fx, fy); g.rotate(-(a1 + a2));
     rrect(g, -7.5, -3, 15, 9.5, 4);
     g.fillStyle = lin(g, -7, 0, 7, 0, far ? [[0, '#f3d27a'], [1, '#c48e2c']] : [[0, '#ffe9a3'], [0.5, '#f7c64c'], [1, '#d99a2b']]);
@@ -1178,11 +1196,11 @@ window.Art = (() => {
   function tube(g, pts, i, w) {
     g.lineCap = 'round'; g.lineJoin = 'round';
     g.beginPath(); smooth(g, pts);
-    g.strokeStyle = RB_D[i]; g.lineWidth = w + 3.5; g.stroke();
-    g.strokeStyle = RB[i]; g.lineWidth = w; g.stroke();
+    g.strokeStyle = UP.rbD[i]; g.lineWidth = w + 3.5; g.stroke();
+    g.strokeStyle = UP.rb[i]; g.lineWidth = w; g.stroke();
     const hp = pts.slice(0, Math.max(2, pts.length - 1)).map(p => [p[0] - w * 0.1, p[1] - w * 0.22]);
     g.beginPath(); smooth(g, hp);
-    g.strokeStyle = RB_L[i]; g.lineWidth = Math.max(1.5, w * 0.26); g.stroke();
+    g.strokeStyle = UP.rbL[i]; g.lineWidth = Math.max(1.5, w * 0.26); g.stroke();
   }
   function uTail(g, P) {
     const fl = P.air ? 1 : 0, t = P.time;
@@ -1224,10 +1242,11 @@ window.Art = (() => {
     for (let f = 0; f < 5; f++) {
       g.save(); g.rotate(-1.25 - 0.2 * gl + f * (0.22 + 0.2 * gl));
       ellipse(g, 0, -32 - f * 2 - 8 * gl, 10 + f - 2 * gl, (34 - f * 4) * (1 + 0.3 * gl));
-      g.fillStyle = lin(g, 0, -66, 0, 0, far ? [[0, '#f1ebff'], [1, '#d7c9f6']] : [[0, '#ffffff'], [1, '#e6dcff']]);
+      const wc = far ? UP.wing.far : UP.wing.near;
+      g.fillStyle = lin(g, 0, -66, 0, 0, [[0, wc[0]], [1, wc[1]]]);
       g.fill();
-      g.strokeStyle = '#c4b0ec'; g.lineWidth = 2; g.stroke();
-      g.fillStyle = rgba(RB[(f + 2) % 6], 0.45); ellipse(g, 0, -58 + f * 3, 6, 8); g.fill();
+      g.strokeStyle = UP.wing.line; g.lineWidth = 2; g.stroke();
+      g.fillStyle = rgba(UP.rb[(f + 2) % 6], 0.45); ellipse(g, 0, -58 + f * 3, 6, 8); g.fill();
       g.restore();
     }
     g.restore();
@@ -1250,15 +1269,15 @@ window.Art = (() => {
 
     // kropp
     uBodyPath(g);
-    g.strokeStyle = '#c4adea'; g.lineWidth = 7; g.lineJoin = 'round'; g.stroke();
-    g.fillStyle = lin(g, 0, -150, 0, -36, [[0, '#ffffff'], [1, '#efe7fb']]); g.fill();
+    g.strokeStyle = UP.line; g.lineWidth = 7; g.lineJoin = 'round'; g.stroke();
+    g.fillStyle = lin(g, 0, -150, 0, -36, [[0, UP.top], [1, UP.bot]]); g.fill();
     g.save();
     uBodyPath(g); g.clip();
-    g.fillStyle = rad(g, -4, -28, 4, 64, [[0, 'rgba(172,146,224,0.42)'], [1, 'rgba(172,146,224,0)']]);
+    g.fillStyle = rad(g, -4, -28, 4, 64, [[0, 'rgba(' + UP.shade + ',0.42)'], [1, 'rgba(' + UP.shade + ',0)']]);
     g.fillRect(-80, -110, 160, 110);
-    g.fillStyle = rad(g, -58, -58, 2, 36, [[0, 'rgba(172,146,224,0.32)'], [1, 'rgba(172,146,224,0)']]);
+    g.fillStyle = rad(g, -58, -58, 2, 36, [[0, 'rgba(' + UP.shade + ',0.32)'], [1, 'rgba(' + UP.shade + ',0)']]);
     g.fillRect(-100, -100, 80, 80);
-    g.fillStyle = rad(g, 66, -96, 2, 28, [[0, 'rgba(172,146,224,0.32)'], [1, 'rgba(172,146,224,0)']]);
+    g.fillStyle = rad(g, 66, -96, 2, 28, [[0, 'rgba(' + UP.shade + ',0.32)'], [1, 'rgba(' + UP.shade + ',0)']]);
     g.fillRect(30, -130, 80, 70);
     g.fillStyle = rad(g, -8, -86, 2, 38, [[0, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]);
     g.fillRect(-60, -130, 110, 90);
@@ -1304,10 +1323,10 @@ window.Art = (() => {
     // manke, øre, lugg og horn
     uMane(g, P);
     g.beginPath(); g.moveTo(42, -146); g.quadraticCurveTo(42, -166, 47, -181); g.quadraticCurveTo(56, -166, 61, -152); g.closePath();
-    g.strokeStyle = '#c4adea'; g.lineWidth = 3.5; g.lineJoin = 'round'; g.stroke();
-    g.fillStyle = lin(g, 42, -170, 60, -150, [[0, '#ffffff'], [1, '#efe7fb']]); g.fill();
+    g.strokeStyle = UP.line; g.lineWidth = 3.5; g.lineJoin = 'round'; g.stroke();
+    g.fillStyle = lin(g, 42, -170, 60, -150, [[0, UP.top], [1, UP.bot]]); g.fill();
     g.beginPath(); g.moveTo(46, -150); g.quadraticCurveTo(46, -163, 48, -173); g.quadraticCurveTo(54, -162, 56, -153); g.closePath();
-    g.fillStyle = lin(g, 0, -172, 0, -150, [[0, '#ffc7dd'], [1, '#ff9cc0']]); g.fill();
+    g.fillStyle = lin(g, 0, -172, 0, -150, [[0, UP.ear[0]], [1, UP.ear[1]]]); g.fill();
 
     if (P.glow > 0) {
       g.save(); g.globalAlpha *= P.glow;
@@ -1316,7 +1335,7 @@ window.Art = (() => {
       g.restore();
     }
     g.beginPath(); g.moveTo(57, -150); g.lineTo(72, -154); g.lineTo(80, -202); g.closePath();
-    g.fillStyle = lin(g, 57, -150, 80, -202, [[0, '#f7b73a'], [0.5, '#ffd970'], [1, '#fff6c8']]); g.fill();
+    g.fillStyle = lin(g, 57, -150, 80, -202, [[0, UP.horn[0]], [0.5, UP.horn[1]], [1, UP.horn[2]]]); g.fill();
     g.save(); g.clip();
     g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 3; g.lineCap = 'round';
     g.beginPath();
@@ -1327,7 +1346,7 @@ window.Art = (() => {
     for (let k = 0; k < 4; k++) { const yy = -155 - k * 11; g.moveTo(54, yy + 4); g.lineTo(84, yy - 6); }
     g.stroke();
     g.restore();
-    g.strokeStyle = '#d49526'; g.lineWidth = 2; g.lineJoin = 'round';
+    g.strokeStyle = UP.hornLine; g.lineWidth = 2; g.lineJoin = 'round';
     g.beginPath(); g.moveTo(57, -150); g.lineTo(72, -154); g.lineTo(80, -202); g.closePath(); g.stroke();
     const sp = Math.sin(P.time * 1.7);
     if (sp > 0.9) { g.fillStyle = '#ffffff'; star4(g, 80, -202, 6 + (sp - 0.9) * 90, 0.18); g.fill(); }
@@ -1337,6 +1356,20 @@ window.Art = (() => {
       tube(g, [[52 + i * 2, -158], [62 + i * 3, -163 + i], [72 + i * 2, -158 + i * 2], [75 + i, -150 + i * 2]], s, 6);
     }
     if (P.wing > 0.02) uWing(g, P, false);
+    // Gullenhjørningen glitrer
+    if (UP.glitter) {
+      for (let k = 0; k < 5; k++) {
+        const ph = P.time * 2.2 + k * 1.7, a = Math.sin(ph);
+        if (a < 0.2) continue;
+        const gx = [-40, 10, 40, -10, 70][k] + Math.sin(k * 3.1) * 8, gy = [-90, -112, -70, -40, -150][k];
+        g.fillStyle = 'rgba(255,255,255,' + (0.5 + 0.5 * a).toFixed(2) + ')';
+        star4(g, gx, gy, 4 + a * 5, 0.22); g.fill();
+      }
+    }
+  }
+  function goldUnicorn(g, P) {
+    UP = U_GOLD;
+    try { unicorn(g, P); } finally { UP = U_NORMAL; }
   }
 
   // ---------------- Panda (låses opp når alle dyrene er i albumet) ----------------
@@ -1438,6 +1471,143 @@ window.Art = (() => {
     if (P.wing > 0.02) { g.save(); g.translate(-4, 4); uWing(g, P, false); g.restore(); }
   }
 
+  // ---------------- Drage (hemmelig figur nr. 2) ----------------
+  // En liten, snill drage: mintgrønn med rosa pigger, små horn, lys mage og hjerte på halespissen.
+  // Samme mål og bevegelser som enhjørningen og pandaen.
+  const DR = { line: '#3f9e7c', top: '#c9f5dd', bot: '#86dcb2', dark: '#5fbf95', belly: '#fff3c4', bellyLine: '#e8cf86', spike: '#ff8fbd', spikeLine: '#e0629a' };
+  function dLeg(g, P, i) {
+    const hips = [[-26, -44], [-34, -42], [22, -46], [30, -44]];
+    const far = i === 0 || i === 2;
+    const [a1, a2] = legAngles(P, i);
+    const [hx, hy] = hips[i];
+    const kx = hx + Math.sin(a1) * 17, ky = hy + Math.cos(a1) * 17;
+    const fx = kx + Math.sin(a1 + a2) * 18, fy = ky + Math.cos(a1 + a2) * 18;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(hx, hy); g.lineTo(kx, ky); g.lineTo(fx, fy);
+    g.strokeStyle = far ? '#348a6b' : DR.line; g.lineWidth = 23; g.stroke();
+    g.strokeStyle = far ? '#6cc79f' : '#9ae5c0'; g.lineWidth = 16; g.stroke();
+    g.save(); g.translate(fx, fy); g.rotate(-(a1 + a2));
+    ellipse(g, 4, 1, 13, 8); g.fillStyle = far ? '#4fae8a' : '#74d0a6'; g.fill();
+    g.strokeStyle = far ? '#348a6b' : DR.line; g.lineWidth = 2; g.stroke();
+    // små klør
+    g.fillStyle = '#fff6dc';
+    for (let c = 0; c < 3; c++) { circle(g, 10 + c * 1.5, -3 + c * 4, 2.2); g.fill(); }
+    g.restore();
+  }
+  function dSpike(g, x, y, h, rot) {
+    g.save(); g.translate(x, y); g.rotate(rot);
+    g.beginPath(); g.moveTo(-h * 0.55, 2); g.quadraticCurveTo(-h * 0.2, -h * 0.9, 0, -h); g.quadraticCurveTo(h * 0.2, -h * 0.9, h * 0.55, 2); g.closePath();
+    g.fillStyle = lin(g, 0, -h, 0, 2, [[0, '#ffd0e4'], [1, DR.spike]]); g.fill();
+    g.strokeStyle = DR.spikeLine; g.lineWidth = 2; g.lineJoin = 'round'; g.stroke();
+    g.restore();
+  }
+  function dBodyPath(g) {
+    g.beginPath();
+    g.moveTo(50, -64); g.ellipse(0, -64, 50, 34, 0, 0, TAU);
+    // hals opp mot hodet
+    g.moveTo(22, -84); g.quadraticCurveTo(36, -112, 50, -124); g.lineTo(78, -106); g.quadraticCurveTo(58, -82, 48, -50); g.closePath();
+  }
+  // P: time, phase, k, air, waiting, happy, blink, wing, wave, glow, glide
+  function dragon(g, P) {
+    const t = P.time;
+    // hale med hjerte på spissen
+    const sw = Math.sin(t * 5) * 6 * P.wave, fl = P.air ? 1 : 0;
+    const tail = [[-36, -70], [-62, -66 + sw * 0.3], [-84 - fl * 6, -58 + sw * 0.7 - fl * 8], [-100 - fl * 10, -66 + sw - fl * 14]];
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); smooth(g, tail); g.strokeStyle = DR.line; g.lineWidth = 24; g.stroke();
+    g.beginPath(); smooth(g, tail); g.strokeStyle = DR.bot; g.lineWidth = 17; g.stroke();
+    const tp = tail[tail.length - 1];
+    for (let k = 1; k < 3; k++) { const p = tail[k]; dSpike(g, p[0], p[1] - 9, 12 - k * 2, -0.25); }
+    heartPath(g, tp[0] - 9, tp[1] - 2, 20);
+    g.fillStyle = lin(g, 0, tp[1] - 12, 0, tp[1] + 10, [[0, '#ffb3d1'], [1, '#ff4d88']]); g.fill();
+    g.strokeStyle = '#d6336f'; g.lineWidth = 2; g.stroke();
+
+    if (P.wing > 0.02) uWing(g, P, true);
+    dLeg(g, P, 0); dLeg(g, P, 2);
+
+    // rygg-pigger (bak kroppen, så de stikker opp)
+    const spikes = [[-30, -94, 15, -0.5], [-12, -100, 17, -0.25], [8, -100, 17, 0.05], [28, -108, 15, 0.35], [42, -124, 13, 0.55]];
+    for (const [x, y, h, r] of spikes) dSpike(g, x, y, h, r);
+
+    // kropp
+    dBodyPath(g);
+    g.strokeStyle = DR.line; g.lineWidth = 6; g.lineJoin = 'round'; g.stroke();
+    g.fillStyle = lin(g, 0, -130, 0, -30, [[0, DR.top], [1, DR.bot]]); g.fill();
+    g.save();
+    dBodyPath(g); g.clip();
+    // lys mage med striper
+    g.beginPath(); g.ellipse(14, -42, 40, 18, -0.1, 0, TAU);
+    g.fillStyle = lin(g, 0, -58, 0, -26, [[0, '#fffbe6'], [1, DR.belly]]); g.fill();
+    g.strokeStyle = DR.bellyLine; g.lineWidth = 2;
+    for (let k = -2; k <= 3; k++) { g.beginPath(); g.moveTo(14 + k * 11, -56); g.quadraticCurveTo(16 + k * 11, -44, 14 + k * 11, -28); g.stroke(); }
+    g.fillStyle = rad(g, -18, -86, 2, 34, [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]);
+    g.fillRect(-60, -120, 80, 70);
+    // prikker på ryggen
+    g.fillStyle = 'rgba(63,158,124,0.35)';
+    for (const [x, y, r] of [[-30, -76, 5], [-18, -84, 4], [-36, -62, 3.5], [-4, -86, 3.5]]) { circle(g, x, y, r); g.fill(); }
+    g.restore();
+    // hjertemerke på låret, som de andre
+    heartPath(g, -34, -66, 13);
+    g.fillStyle = lin(g, 0, -72, 0, -58, [[0, '#ff9cc4'], [1, '#ff4d88']]); g.fill();
+    dLeg(g, P, 1); dLeg(g, P, 3);
+
+    // små vinger på ryggen (alltid), store vinger i turbo
+    if (P.wing <= 0.02) {
+      g.save(); g.translate(-6, -96); g.rotate(-0.5 + Math.sin(t * 6) * 0.12);
+      g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-8, -30, -30, -34); g.quadraticCurveTo(-22, -22, -30, -14);
+      g.quadraticCurveTo(-18, -12, -22, -2); g.quadraticCurveTo(-10, -4, 0, 0); g.closePath();
+      g.fillStyle = lin(g, 0, -34, 0, 0, [[0, '#d9c8ff'], [1, '#a98bff']]); g.fill();
+      g.strokeStyle = '#7f62d6'; g.lineWidth = 2; g.stroke();
+      g.restore();
+    }
+
+    // hode
+    const hx = 66, hy = -122;
+    // horn
+    for (const [ox, rot] of [[-14, -0.35], [4, 0.15]]) {
+      g.save(); g.translate(hx + ox, hy - 22); g.rotate(rot);
+      g.beginPath(); g.moveTo(-6, 4); g.quadraticCurveTo(-4, -14, 2, -22); g.quadraticCurveTo(6, -10, 6, 4); g.closePath();
+      g.fillStyle = lin(g, 0, -22, 0, 4, [[0, '#fffbe6'], [1, '#f5d98a']]); g.fill();
+      g.strokeStyle = '#c9a24c'; g.lineWidth = 2; g.stroke();
+      g.restore();
+    }
+    ellipse(g, hx, hy, 32, 28);
+    g.strokeStyle = DR.line; g.lineWidth = 5; g.stroke();
+    g.fillStyle = lin(g, 0, hy - 28, 0, hy + 28, [[0, DR.top], [1, DR.bot]]); g.fill();
+    // snute
+    ellipse(g, hx + 30, hy + 8, 20, 15, 0.1);
+    g.fillStyle = lin(g, 0, hy - 6, 0, hy + 22, [[0, '#d9f8e8'], [1, '#a6e8c7']]); g.fill();
+    g.strokeStyle = DR.line; g.lineWidth = 3.5; g.stroke();
+    g.fillStyle = '#2f7a5f';
+    ellipse(g, hx + 40, hy + 2, 2.6, 1.8, 0.4); g.fill();
+    ellipse(g, hx + 46, hy + 5, 2.6, 1.8, 0.4); g.fill();
+    g.strokeStyle = '#2f7a5f'; g.lineWidth = 2.2; g.lineCap = 'round';
+    g.beginPath(); g.arc(hx + 36, hy + 12, 7, 0.35, 1.7); g.stroke();
+    // øye
+    const ex = hx + 8, ey = hy - 6;
+    if (P.happy || P.blink) {
+      g.strokeStyle = '#1f3b33'; g.lineWidth = 3.4; g.beginPath();
+      if (P.happy) g.arc(ex, ey + 3, 6.5, Math.PI * 1.15, Math.PI * 1.85);
+      else g.arc(ex, ey - 2, 6.5, Math.PI * 0.15, Math.PI * 0.85);
+      g.stroke();
+    } else {
+      g.fillStyle = '#1f3b33'; ellipse(g, ex, ey, 8, 10); g.fill();
+      g.fillStyle = rad(g, ex, ey + 3, 1, 9, [[0, '#a6f0d0'], [0.55, '#2f9e78'], [1, '#1f3b33']]);
+      ellipse(g, ex + 0.5, ey + 1, 6.4, 8.2); g.fill();
+      g.fillStyle = '#10241e'; ellipse(g, ex + 1, ey, 3.3, 4.4); g.fill();
+      g.fillStyle = '#ffffff'; circle(g, ex + 2.6, ey - 4.5, 3); g.fill();
+      circle(g, ex - 2.4, ey + 4.5, 1.4); g.fill();
+    }
+    blush(g, hx + 18, hy + 12, 8);
+    if (P.glow > 0) {
+      g.save(); g.globalAlpha *= P.glow * 0.6;
+      g.fillStyle = rad(g, hx - 4, hy - 46, 0, 22, [[0, 'rgba(255,240,170,0.85)'], [1, 'rgba(255,240,170,0)']]);
+      circle(g, hx - 4, hy - 46, 22); g.fill();
+      g.restore();
+    }
+    if (P.wing > 0.02) uWing(g, P, false);
+  }
+
   // ---------------- Logo til menyen ----------------
   function logoDataURL() {
     const W = 380, H = 300, sc = 2;
@@ -1471,6 +1641,6 @@ window.Art = (() => {
     prop, SWAY, tuftSprite, flowerDecorSprite, cloverSprite, miniMushSprite, pebbleSprite,
     heartSprite, heartSlotSprite, glowSprite, sparkSprite, cloudSprite, cloudShadowSprite,
     grassPattern, pathPattern, lightOverlay, raysOverlay,
-    pond, gate, butterfly, rabbit, animal, unicorn, panda, logoDataURL,
+    pond, gate, butterfly, rabbit, animal, unicorn, panda, goldUnicorn, dragon, logoDataURL,
   };
 })();

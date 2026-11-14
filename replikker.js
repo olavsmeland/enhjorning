@@ -6,14 +6,14 @@
  */
 (function (root) {
   const DYR = {
-    rabbit: ['kaninen', 'kaninene'],
-    hedgehog: ['pinnsvinet', 'pinnsvinene'],
-    duck: ['andungen', 'andungene'],
-    frog: ['frosken', 'froskene'],
-    pig: ['grisen', 'grisene'],
-    turtle: ['skilpadden', 'skilpaddene'],
-    lamb: ['lammet', 'lammene'],
-    fox: ['reven', 'revene'],
+    rabbit: ['kaninen', 'kaninene', 'en kanin'],
+    hedgehog: ['pinnsvinet', 'pinnsvinene', 'et pinnsvin'],
+    duck: ['andungen', 'andungene', 'en andunge'],
+    frog: ['frosken', 'froskene', 'en frosk'],
+    pig: ['grisen', 'grisene', 'en gris'],
+    turtle: ['skilpadden', 'skilpaddene', 'en skilpadde'],
+    lamb: ['lammet', 'lammene', 'et lam'],
+    fox: ['reven', 'revene', 'en rev'],
   };
   const STEDER = ['Blomsterenga', 'Eventyrskogen', 'Regnbuedalen'];
   // Muntlig, varm norsk slik en voksen sier det til et barn (gjennomgått av manus-/QA-tester
@@ -53,13 +53,22 @@
     panda_laast_opp: 'Du fant det hemmelige dyret! Nå kan du være panda!',
     hei_panda: 'Hei, panda!',
     hei_enhjorning: 'Hei, enhjørning!',
+    // Flere hemmelige dyr (låses opp med hjerter etter pandaen)
+    drage_laast_opp: 'Du fant et nytt hemmelig dyr! Nå kan du være drage!',
+    gull_laast_opp: 'Du fant det aller hemmeligste dyret! Nå kan du være gullenhjørning!',
+    hei_drage: 'Hei, drage!',
+    hei_gull: 'Hei, gullenhjørning!',
+    // Dyrealbumet og hvem som spiller
+    album_hemmelig: 'Hvem kan det være?',
+    hvem_spiller: 'Hvem skal spille nå?',
   };
   STEDER.forEach((s, i) => { R['velkommen_' + i] = 'Velkommen til ' + s + '!'; });
   for (const kind of Object.keys(DYR)) {
-    const [def, pl] = DYR[kind];
+    const [def, pl, ub] = DYR[kind];
     R['hopp_over_' + kind] = 'Hopp over ' + def + '!';
     R['naa_' + kind] = 'Nå skal vi hoppe over ' + pl + '!';
     R['neste_' + kind] = 'Nå venter ' + pl + ' på oss!';
+    R['navn_' + kind] = 'Det er ' + ub + '!';   // dyrealbumet: trykk på et dyr
   }
   root.REPLIKKER = R;
 })(typeof window !== 'undefined' ? window : globalThis);
