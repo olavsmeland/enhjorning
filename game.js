@@ -1888,9 +1888,11 @@
     setTimeout(() => goalEl.classList.remove('sperret'), news.unlocked ? 4000 : 2000);
     const vansk = settings.difficulty !== 'lett';
     Sfx.say(news.unlocked ? [news.unlocked + '_laast_opp'] : [news.newAnimal ? 'nytt_i_albumet' : news.nyBest ? 'rekord' : vansk ? 'ros_2' : 'ros_4', 'neste_' + nxt.kind], true);
-    // Små barn trenger ikke finne knappen: neste runde starter av seg selv etter en stund
+    // Neste runde starter ALDRI av seg selv (foreldre ville ikke ha «autoplay»): et trykk hvor som helst,
+    // eller et hopp med kamera, går videre. Står kortet urørt i to minutter, blir det stille
+    // (musikken pauser, og skjermen får lov til å slukke).
     clearTimeout(goalAuto);
-    goalAuto = setTimeout(() => { goalReadyAt = 0; goalMaxVent = 0; nextRound(); }, news.unlocked ? 16000 : 11000);
+    goalAuto = setTimeout(() => { if (state === 'goal') { Sfx.pauseMusic(true); holdVaaken(false); } }, 120000);
   }
   let goalAuto = 0, goalShownAt = 0, nyFigur = false, goalMaxVent = 6000, goalRetry = 0;
   function nextRound() {
@@ -1906,6 +1908,7 @@
     }
     goalEl.classList.remove('paavei');
     clearTimeout(goalAuto);
+    Sfx.pauseMusic(false); if (useCamera) holdVaaken(true);
     show(goalEl, false);
     blurActive();
     roundAnimal = (roundAnimal + 1) % ANIMALS.length;
@@ -2114,7 +2117,6 @@
     if (document.hidden) {
       writeSave(); releaseKeys();
       if (state === 'play') pause();
-      if (state === 'goal') clearTimeout(goalAuto);   // ikke start neste runde mens appen er skjult
     }
     // Tilbake etter låsing: målkortet blir stående til noen trykker (ingen ny nedtelling)
   });
