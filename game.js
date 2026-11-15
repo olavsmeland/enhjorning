@@ -1751,12 +1751,23 @@
     } catch (e) { console.warn(e); }
   }
 
-  let wakeLock = null;
+  // Skjermen holdes våken bare mens kameraet er på (da rører ingen skjermen). Når kameraet slås av i pause,
+  // får skjermen slukke som vanlig. vilVaaken er det siste ønsket; kall som kommer tett, kan ikke gå i beina på hverandre.
+  let wakeLock = null, vilVaaken = false, vaakenJobb = false;
   async function holdVaaken(on) {
+    vilVaaken = !!on;
+    if (vaakenJobb || !navigator.wakeLock) return;   // et kall er i gang: det retter seg etter vilVaaken når det er ferdig
+    vaakenJobb = true;
     try {
-      if (on && navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-      if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+      for (let n = 0; n < 4 && vilVaaken !== !!wakeLock; n++) {
+        if (vilVaaken) {
+          const w = await navigator.wakeLock.request('screen');
+          wakeLock = w;
+          w.addEventListener('release', () => { if (wakeLock === w) wakeLock = null; });
+        } else { const w = wakeLock; wakeLock = null; await w.release(); }
+      }
     } catch (e) { /* ikke støttet eller ikke lov – spill videre */ }
+    vaakenJobb = false;
   }
   function startGame(cam) {
     Sfx.init();
@@ -2008,6 +2019,7 @@
     if (!useCamera) return;
     camSov = true;
     JumpCam.stop();
+    holdVaaken(false);   // kameraet er av: skjermen får slukke som vanlig
     if (state === 'pause') $('pauseTitle').textContent = autoPaused ? '⏸ Spillet venter på deg' : '⏸ Pause';
     if (state === 'goal') goalHjelp();
   }
@@ -2015,6 +2027,7 @@
     if (camVekkes) return;
     const tur = ++camTur, cs = JumpCam.state;
     camVekkes = true;
+    holdVaaken(true);
     if (state === 'pause') $('pauseTitle').textContent = '📷 Starter kameraet …';
     try { await JumpCam.start(settings.camId); } catch (e) { console.warn('Kamerafeil', e); }
     if (tur !== camTur) return;   // avbrutt: til menyen, ny pause eller siden ble skjult
@@ -2029,6 +2042,7 @@
     if (cs.active) { resume(); return; }
     // Kameraet kom ikke i gang igjen: spill videre med trykk (som når kameraet kobles fra)
     useCamera = false; autoPaused = true;
+    holdVaaken(false);
     $('pauseTitle').textContent = '📷 Kameraet ble borte – spill videre med trykk';
   }
   function resume() {
@@ -2175,7 +2189,7 @@
   });
   window.addEventListener('pagehide', writeSave);
   for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => Sfx.wake(), true);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { Sfx.wake(); if (useCamera && state !== 'menu') holdVaaken(true); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { Sfx.wake(); if (useCamera && !camSov && state !== 'menu') holdVaaken(true); } });
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault());
   document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   // Snus telefonen på høykant midt i en runde, vises «Snu skjermen» – da skal spillet stå stille
