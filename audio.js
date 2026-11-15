@@ -716,6 +716,8 @@ window.Sfx = (() => {
     speaking() { return !!(voiceSrc || pendingSay || queuedSay); },
     // Stopp Vilde mykt (f.eks. når en forelder trykker «Neste dyr!»)
     hush() { queuedSay = null; pendingSay = null; stopVoice(); duck(false); },
+    // Systemet kan stoppe lyden (telefonsamtale, Siri, appbytte). Vekk den igjen ved neste trykk.
+    wake() { if (ac && ac.state !== 'running' && ac.state !== 'closed') { try { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignorer */ } } },
     voiceName() {
       const urls = Object.values((pack && pack.stemme) || {}), info = (pack && pack.info) || {};
       if (urls.length && (info.stemmeKilde === 'elevenlabs' || urls.some(u => /\.mp3$/i.test(u)))) return 'ElevenLabs' + (info.stemme ? ': ' + info.stemme : '');

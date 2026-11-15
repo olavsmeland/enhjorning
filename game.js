@@ -62,6 +62,10 @@
   const PROFIL_KEY = 'enhjorning-profiler', MAKS_SPILLERE = 6;
   const profiler = (() => { try { return JSON.parse(localStorage.getItem(PROFIL_KEY) || 'null'); } catch (e) { return null; } })()
     || { aktiv: 'p1', liste: [{ id: 'p1', navn: '', ikon: 'rabbit', difficulty: settings.difficulty, hero: settings.hero }] };
+  if (!Array.isArray(profiler.liste) || !profiler.liste.length || profiler.liste.some(p => !p || !p.id)) {
+    profiler.liste = [{ id: 'p1', navn: '', ikon: 'rabbit', difficulty: 'lett', hero: 'unicorn' }];   // ødelagt lagring: start pent på nytt
+    profiler.aktiv = 'p1';
+  }
   function aktivProfil() { return profiler.liste.find(p => p.id === profiler.aktiv) || profiler.liste[0]; }
   function lagreProfiler() { try { localStorage.setItem(PROFIL_KEY, JSON.stringify(profiler)); } catch (e) { /* ignorer */ } }
   const saveKey = id => (id === 'p1' ? 'enhjorning-samling' : 'enhjorning-samling-' + id);
@@ -116,9 +120,9 @@
   // Hjerter som trengs for å komme i mål. I Lett venter enhjørningen ved hvert dyr, så der trengs
   // færre hjerter for at runden skal ta omtrent like lang tid (testet: 60 hjerter ga 2–3 min i Lett).
   const FEST_HEARTS_LETT = 36, FEST_HEARTS_VANSKELIG = 60;
-  const festHearts = () => (settings.difficulty === 'lett' ? FEST_HEARTS_LETT : FEST_HEARTS_VANSKELIG);
+  const festHearts = () => (settings.difficulty !== 'lett' ? FEST_HEARTS_VANSKELIG : useCamera ? 50 : FEST_HEARTS_LETT);
   // Hjerter på rad som gir turbo (Vanskelig krever flere)
-  const turboNeed = () => (settings.difficulty === 'lett' ? 12 : 16);
+  const turboNeed = () => (settings.difficulty === 'lett' && !useCamera ? 12 : 16);
   const TURBO_TIME = 7.5;         // sekunder enhjørningen flyr i turbo
   const ARMS_BONUS = 7;           // inntil så mange sekunder ekstra flytur når barnet holder armene ute (kamera)
   const CELEBRATE_TIME = 2.8;     // sekunder med feiring før målkortet vises
@@ -212,6 +216,7 @@
   }
   const nesteHopp = bunke(['hopp', 'hopp_2', 'hopp_3']);
   const nesteRos = bunke(['ros_1', 'ros_2', 'ros_3', 'ros_4', 'ros_5', 'ros_6']);
+  const nesteRosEldre = bunke(['ros_1', 'ros_2', 'ros_3', 'ros_5']);   // Vanskelig: uten «Så flink du er!» og «Kjempebra, du!»
   function hash(a, b, c) {
     let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul((c || 0) | 0, 1440662683);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -235,6 +240,8 @@
   let heartsTotal = 0, progress = 0, fest = 0, festVis = 0, biomeIdx = 0, celebrate = 0;
   let hudPop = 0, streak = 0, streakT = 0, praiseCD = 0;
   let banner = null, bubbleA = 0, waitTime = 0, waitAll = 0, talkUntil = 0, sayHopNext = false, hjelpDyr = 2;
+  let nagCount = 0, idleT = 0, autoPaused = false, pauseShownAt = 0, ingenT = 0;   // idleT: sekunder siden siste hopp
+  let roundT = 0;   // sekunder spilt i denne runden (pauser teller ikke)
   let roundAnimal = 0, roundNo = 1, roundJumps = 0, roundHearts = 0, roundBumps = 0, met = [0], newAnimalPop = 0, hintCounts = {};
   let goalReadyAt = 0;
   let turbo = 0, turboMeter = 0, turboVis = 0, meterShake = 0, meterPop = 0, progressShown = 0;
@@ -258,7 +265,7 @@
     animals = []; hearts = []; gates = []; parts = []; confetti = []; flyers = [];
     zones = [{ x: -1e9, b: biomeIdx, announced: true }];
     nextEventX = W * 0.85; seq = 0; sinceGate = 0;
-    progress = 0; fest = 0; festVis = 0; celebrate = 0; goalPending = false; roundJumps = 0; roundHearts = 0; roundBumps = 0; waitAll = 0; sayHopNext = false;
+    progress = 0; fest = 0; festVis = 0; celebrate = 0; goalPending = false; roundJumps = 0; roundHearts = 0; roundBumps = 0; roundT = 0; waitAll = 0; sayHopNext = false;
     turbo = 0; turboMeter = 0; turboVis = 0; meterShake = 0; meterPop = 0; progressShown = 0;
     if (window.Sfx && Sfx.setTurbo) Sfx.setTurbo(false);
     hudPop = 0; streak = 0; streakT = 0; banner = null; bubbleA = 0; waitTime = 0;
@@ -284,7 +291,7 @@
   function currentBase() {
     const vanlig = settings.difficulty !== 'lett' && state === 'play';
     // Vanskelig: raskere, og litt raskere for hver runde (testere: for lett for 7–9-åringer)
-    const base = vanlig ? 352 * (1 + Math.min(0.4, (roundNo - 1) * 0.07)) : 285;
+    const base = vanlig ? 352 * (1 + 0.07 * clamp(save.vNiva || 0, 0, 6)) : 285;
     return base * speedMul * (U.power > 0 ? 1.15 : 1) * (turbo > 0 ? 1.5 : 1);
   }
 
@@ -405,6 +412,7 @@
   // ================= Handlinger =================
   function jump(auto) {
     if (!auto && state !== 'play') return;
+    if (!auto) idleT = 0;
     if (fest > 0 || turbo > 0) return;
     if (U.air) { U.jumpBuffer = 0.22; return; }
     const base = currentBase();
@@ -484,7 +492,7 @@
     sparkleBurst(U.x, pathY(U.x), U.h + 80, 24, RAINBOW);
     Sfx.turbo();
     Sfx.setTurbo(true);
-    Sfx.say(arms ? ['turbo', 'armer_start'] : ['paa_rad', 'turbo'], true);
+    Sfx.say(arms ? ['turbo', 'armer_start'] : settings.difficulty !== 'lett' ? 'turbo' : ['paa_rad', 'turbo'], true);
     if (arms) talkUntil = time + 3.5;
     U.jumpBuffer = 0;
   }
@@ -544,9 +552,10 @@
       save.jumped[r.kind] = (save.jumped[r.kind] || 0) + 1;
       Sfx.animal(r.kind);
       U.happy = 1;
-      if (praiseCD <= 0 && Math.random() < 0.4) {
-        praiseCD = 9;
-        Sfx.say(nesteRos(), false);
+      const eldre = settings.difficulty !== 'lett';
+      if (praiseCD <= 0 && Math.random() < (eldre ? 0.25 : 0.4)) {
+        praiseCD = eldre ? 15 : 9;
+        Sfx.say(eldre ? nesteRosEldre() : nesteRos(), false);
       }
     }
   }
@@ -584,6 +593,15 @@
     save.done[a.kind] = true;
     save.stars[a.kind] = Math.max(save.stars[a.kind] || 0, roundStars());
     save.rounds++; save.last = roundAnimal;
+    goalNews.tid = Math.round(roundT);
+    if (settings.difficulty !== 'lett') {
+      if (!save.best) save.best = {};
+      const før = save.best[a.kind];
+      goalNews.nyBest = !!før && goalNews.tid < før;
+      if (!før || goalNews.tid < før) save.best[a.kind] = goalNews.tid;
+      // Farten tilpasser seg: fort opp etter en god runde, ned igjen etter mange krasj
+      save.vNiva = clamp((save.vNiva || 0) + (roundBumps <= 1 ? 1 : roundBumps >= 4 ? -1 : 0), 0, 6);
+    }
     // Neste hemmelige dyr låses opp når kravet er nådd (ett om gangen, i fast rekkefølge)
     const ny = nextSecret();
     if (ny) {
@@ -608,7 +626,7 @@
   // Ny runde: nytt dyr og nytt sted, regnbuemåleren starter på null
   function startRound() {
     resetWorld();
-    hjelpDyr = 2;
+    hjelpDyr = 2; idleT = 0; nagCount = 0;
     if (!met.includes(roundAnimal)) met.push(roundAnimal);
     const a = ANIMALS[roundAnimal], b = BIOMES[biomeIdx];
     state = 'play';
@@ -660,8 +678,8 @@
       if (Math.random() < dt * 10) addPart({ x: U.x + rand(-60, 80), y: pathY(U.x), h: U.h + rand(40, 200), vh: rand(10, 40), life: rand(0.6, 1.1), size: rand(10, 16), col: pick(RAINBOW) });
     } else if (turbo > 0) {
       // TURBO: pil opp/ned (eller hold fingeren på) styrer høyden. Med kamera styrer enhjørningen selv mot hjertene.
-      if (steer) U.flyH = clamp(U.flyH + steer * 300 * dt, 50, 210);
-      else if (useCamera || attract) {
+      if (steer && !lett) U.flyH = clamp(U.flyH + steer * 300 * dt, 50, 210);
+      else if (useCamera || attract || lett) {
         let next = null;
         for (const ht of hearts) if (ht.sky && !ht.taken && ht.x > U.x - 10 && (!next || ht.x < next.x)) next = ht;
         const want = next && next.x - U.x < 420 ? clamp(next.h - 40, 50, 210) : 130;
@@ -676,9 +694,12 @@
       // Etter turbo: enhjørningen glir ned igjen
       U.vh -= GRAV * 0.7 * dt;
       U.h += U.vh * dt;
-      if (lett) {
+      {
+        // Glir over dyr som står der den ville landet. I Vanskelig også dyr like foran, så man rekker å hoppe.
+        const fram = lett ? 0 : Math.max(U.speed, 200) * 0.9;
         for (const a of animals) {
-          if (a.state === 'wait' && Math.abs(a.x - U.x) < a.a.hw + 30 && U.h < a.a.clearH + 8) { U.h = a.a.clearH + 8; U.vh = Math.max(U.vh, 0); }
+          const d = a.x - U.x;
+          if (a.state === 'wait' && d > -(a.a.hw + 30) && d < a.a.hw + 30 + fram && U.h < a.a.clearH + 8) { U.h = a.a.clearH + 8; U.vh = Math.max(U.vh, 0); }
         }
       }
       if (U.h <= 0) { U.h = 0; U.vh = 0; U.air = false; U.descend = false; land(); }
@@ -778,7 +799,7 @@
       }
       if (Math.abs(ht.x - U.x) < 52) {
         // Hjerter i lufta må man treffe i riktig høyde (med kamera er det litt rausere)
-        const tol = useCamera || attract ? 85 : 55;
+        const tol = useCamera || attract || settings.difficulty === 'lett' ? 85 : (ht.turbo ? 40 : 55);
         const lowOnly = settings.difficulty !== 'lett' && !useCamera && !attract;
         const ok = ht.sky ? Math.abs(ht.h - (U.h + 40)) < tol : (!lowOnly || U.h < 95);
         if (ok) { ht.taken = true; collectAt(ht.x, ht.y, ht.h + Math.sin(ht.t * 3) * 5, attract, !attract && (ht.pull || (U.glide > 0.5 && ht.sky))); }
@@ -800,7 +821,7 @@
       sparkleBurst(g.x, pathY(g.x), 140, 26, RAINBOW);
       if (!attract) {
         Sfx.rainbow();
-        Sfx.say('regnbue', false);
+        if (settings.difficulty === 'lett' || Math.random() < 0.35) Sfx.say('regnbue', false);
         for (let i = 0; i < 3; i++) {
           flyers.push({ sx: g.x - camX - 40 + i * 40, sy: pathY(g.x) - 230, t: -i * 0.15, dur: 0.75 });
         }
@@ -878,7 +899,7 @@
       turbo -= dt * drain;
       if (turbo <= 0) {
         endTurbo();
-        if (goalPending) { goalPending = false; reachGoal(); } else Sfx.say('turbo_slutt', false);
+        if (goalPending) { goalPending = false; reachGoal(); } else if (settings.difficulty === 'lett' || Math.random() < 0.35) Sfx.say('turbo_slutt', false);
       }
     }
     turboVis += ((turbo > 0 ? 1 : 0) - turboVis) * Math.min(1, dt * 3);
@@ -905,7 +926,7 @@
         } else if (!U.air) {
           // Litt før vinduet åpner, så et barns reaksjonstid lander midt i det
           const v = Math.max(80, U.speed), w = jumpWindow(nr.a, v);
-          if (d <= w.max + v * 0.15 && d >= w.min) {
+          if (d <= w.max + v * (useCamera ? 0.55 : 0.15) && d >= w.min) {
             // Vanskelig: boblen hjelper bare ved de første dyrene i runden og rett etter et krasj (alltid med kamera)
             show = useCamera || hjelpDyr > 0;
             if (!nr.cued) { nr.cued = true; if (sayHopNext && time >= talkUntil) { sayHopNext = false; Sfx.say(nesteHopp(), true); } }
@@ -927,16 +948,36 @@
         waitTime += dt;
         if (waitTime > 7) {
           waitTime = 0;
-          Sfx.hint();
-          Sfx.say(pick(isTouch && !useCamera ? ['trykk_1', 'trykk_2', 'vent_1'] : ['vent_1', 'vent_2', 'vent_3']), true);
+          // Høyst tre påminnelser, så er Vilde stille (ikke mas når barnet har gått fra spillet)
+          if (nagCount < 3) {
+            nagCount++;
+            Sfx.hint();
+            Sfx.say(pick(isTouch && !useCamera ? ['trykk_1', 'trykk_2', 'vent_1'] : ['vent_1', 'vent_2', 'vent_3']), true);
+          }
         }
-      } else { waitTime = 0; waitAll = 0; }
+      } else { waitTime = 0; waitAll = 0; nagCount = 0; }
     }
     bubbleA += ((show ? 1 : 0) - bubbleA) * Math.min(1, dt * 8);
   }
 
   function update(dt) {
+    if (pauseHint > 0) pauseHint -= dt;
+    if (pauseHold && state === 'play' && performance.now() - pauseHold.t0 >= PAUSE_HOLD * 1000) { pauseHold = null; Sfx.click(); pause(); }
+    if (state !== 'play') pauseHold = null;
     if (state === 'pause') return;
+    // Ingen hopp på ett minutt: spillet setter seg selv på pause (barnet har gått fra)
+    if (state === 'play' && fest <= 0) { roundT += dt; idleT += dt; if (idleT > 60) { pause(true); return; } }
+    if (state === 'play' && useCamera) {
+      const cs = JumpCam.state;
+      if (!cs.active) {
+        // Kameraet ble koblet fra: spill videre med trykk
+        useCamera = false;
+        pause(true); $('pauseTitle').textContent = '📷 Kameraet ble borte – spill videre med trykk';
+        return;
+      }
+      if (cs.mode === 'pose' && !cs.person) { ingenT += dt; } else ingenT = 0;
+      if (ingenT > 5) { ingenT = 0; pause(true); $('pauseTitle').textContent = '🙈 Jeg ser deg ikke – kom tilbake og hopp!'; return; }
+    } else ingenT = 0;
     time += dt;
     const attract = state === 'menu' || state === 'camsetup';   // demo i bakgrunnen av menyen
     // Pil høyre = fortere, pil venstre = saktere (bare så lenge tasten holdes inne)
@@ -1341,19 +1382,39 @@
 
   // ⏸-knapp i spillet (iPhone/iPad har ingen Esc-tast). Øverst til høyre, under kamerabildet med kamera.
   const pauseBtn = () => ({ x: W - 72 - safe.r, y: (useCamera ? 268 : 64) + safe.t, r: 46 });
+  // På berøringsskjerm må ⏸ holdes inne i et halvt sekund (små fingre traff den ved uhell omtrent
+  // en gang i minuttet). Et kort trykk på knappen er et vanlig hopp. Med mus er det et vanlig klikk.
+  const PAUSE_HOLD = 0.5;
+  let pauseHold = null;     // { id, t0 } mens en finger holder på ⏸
+  let pauseHint = 0;        // sekunder igjen av «Hold inne»-teksten
   function drawPauseBtn() {
-    if (state !== 'play') return;
+    if (state !== 'play' || fest > 0) return;
     const { x, y, r } = pauseBtn();
     panel(x - r, y - r, r * 2, r * 2, r);
     ctx.fillStyle = '#c03a7a';
     rrPath(x - 17, y - 20, 12, 40, 5); ctx.fill();
     rrPath(x + 5, y - 20, 12, 40, 5); ctx.fill();
+    if (pauseHold) {
+      const f = clamp((performance.now() - pauseHold.t0) / 1000 / PAUSE_HOLD, 0, 1);
+      ctx.strokeStyle = PINK; ctx.lineWidth = 8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(x, y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke();
+    }
+    if (pauseHint > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, pauseHint * 2);
+      ctx.font = `600 30px ${FONT}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      const txt = 'Hold inne for pause', tw = ctx.measureText(txt).width;
+      panel(x - r - 22 - tw - 28, y - 28, tw + 36, 56, 28);
+      ctx.fillStyle = '#7a4a9a'; ctx.fillText(txt, x - r - 22 - 10, y + 1);
+      ctx.restore();
+    }
   }
   function hitPause(e) {
+    if (fest > 0) return false;   // ikke under målfeiringen
     const rc = canvas.getBoundingClientRect();
     const px = (e.clientX - rc.left) * canvas.width / rc.width, py = (e.clientY - rc.top) * canvas.height / rc.height;
     const lx = (px - view.ox) / view.k, ly = (py - view.oy) / view.k, b = pauseBtn();
-    return Math.hypot(lx - b.x, ly - b.y) < b.r + 18;   // litt romslig treffområde for små fingre
+    return Math.hypot(lx - b.x, ly - b.y) < b.r + 4;
   }
 
   function drawHUD() {
@@ -1686,11 +1747,19 @@
     } catch (e) { console.warn(e); }
   }
 
+  let wakeLock = null;
+  async function holdVaaken(on) {
+    try {
+      if (on && navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+      if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+    } catch (e) { /* ikke støttet eller ikke lov – spill videre */ }
+  }
   function startGame(cam) {
     Sfx.init();
     releaseKeys();
     useCamera = !!cam && JumpCam.state.active;
     if (!useCamera) JumpCam.stop();
+    holdVaaken(useCamera);
     show(menuEl, false); show(camEl, false); show(pauseEl, false); show(goalEl, false);
     blurActive();
     resetSession();
@@ -1742,10 +1811,10 @@
       const has = !!save.done[a.kind], st = save.stars[a.kind] || 0, j = save.jumped[a.kind] || 0;
       return `<figure class="acard${has ? '' : ' locked'}" data-kind="${a.kind}"><img src="${has ? portrait(a.kind) : shadowPic(a.kind, animalPic(a.kind)).url}" alt="">` +
         `<b>${has ? a.name : '?'}</b><span class="medal">${has ? '⭐'.repeat(st) + '<span class="dim">⭐</span>'.repeat(3 - st) : ''}</span>` +
-        `<small>${j ? `Hoppet over ${j} ${j === 1 ? 'gang' : 'ganger'}` : '&nbsp;'}</small></figure>`;
+        `<small>${j ? `Hoppet over ${j} ${j === 1 ? 'gang' : 'ganger'}` : '&nbsp;'}${save.best && save.best[a.kind] ? ` · ⏱ ${save.best[a.kind]} s` : ''}</small></figure>`;
     }).join('');
     const sec = nextSecret(), funnet = HEROES.filter(h => h.krav && unlocked(h.id));
-    const funnetTxt = funnet.length ? `<br><small>Funnet: ${funnet.map(h => h.emoji + ' ' + h.navn).join(', ')}</small>` : '';
+    const funnetTxt = funnet.length ? `<div class="funnet">${funnet.map(h => `<img src="${heroPortrait(h.id)}" alt="${h.navn}" title="${h.navn}">`).join('')}</div>` : '';
     if (sec) {
       const [har, trengs] = kravFremdrift(sec);
       $('albumHero').innerHTML = `<span class="mystery big" aria-hidden="true">?</span><div><b>Hemmelig dyr 🔒</b><br>` +
@@ -1757,7 +1826,7 @@
     const sek = v => String(v || 0).replace('.', ',');
     $('albumRecords').innerHTML =
       `<li>💗 Flest hjerter på rad: <b>${save.bestRow}</b></li>` +
-      `<li>🕊️ Lengste flytur: <b>${sek(save.longestFlight)} sek</b></li>` +
+      (save.longestFlight > 8 ? `<li>🕊️ Lengste flytur: <b>${sek(save.longestFlight)} sek</b></li>` : '') +
       `<li>🏁 Ganger i mål: <b>${save.rounds}</b></li>` +
       `<li>💖 Hjerter i alt: <b>${save.hearts}</b></li>`;
   }
@@ -1784,7 +1853,8 @@
     $('goalText').textContent = (roundJumps > 0
       ? `Du hoppet over ${roundJumps} ${roundJumps === 1 ? a.name.toLowerCase() : a.pl} og samlet ${roundHearts} hjerter!`
       : `Du samlet ${roundHearts} hjerter!`) + (roundBumps === 0 && roundJumps > 0 ? ' Ingen krasj! 🌟' : '') +
-      (settings.difficulty !== 'lett' && roundBumps > 0 ? ` ${roundBumps} krasj – uten krasj blir det tre stjerner.` : '');
+      (settings.difficulty !== 'lett' && roundBumps > 0 ? ` ${roundBumps} krasj – uten krasj blir det tre stjerner.` : '') +
+      (settings.difficulty !== 'lett' && (goalNews || {}).tid ? ` ⏱ ${goalNews.tid} sek${goalNews.nyBest ? ' – ny bestetid!' : ''}` : '');
     $('goalNextName').textContent = nxt.name;
     $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
     // Albumet, og pandaen når alle dyrene er samlet
@@ -1797,29 +1867,44 @@
       $('goalAlbum').textContent = news.newAnimal ? `📖 Nytt dyr i albumet! (${n} av ${ANIMALS.length})` : `📖 Albumet: ${n} av ${ANIMALS.length} dyr`;
     }
     show($('goalUnlock'), !!news.unlocked);
+    if (news.unlocked) $('goalAlbum').textContent = '';   // avsløringen står alene (ikke fremdrift mot neste dyr samtidig)
+    show($('btnNext').parentElement, !news.unlocked);
     show($('goalAnimals'), !news.unlocked);
     if (news.unlocked) {
       const h = heroById(news.unlocked);
       $('goalPanda').src = heroPortrait(h.id);
       $('goalUnlockTitle').textContent = `Det hemmelige dyret er ${h.ub}!\u00a0${h.emoji}`;
       $('goalPanda').alt = h.best;
-      $('btnPandaNow').textContent = `${h.emoji} Bli ${h.navn.toLowerCase()}!`;
+      $('btnPandaNow').textContent = `${h.emoji} Spill som ${h.navn.toLowerCase()}!`;
       $('btnPandaNow').dataset.hero = h.id;
     }
     show(goalEl, true);
-    goalReadyAt = performance.now() + 1300;
+    // Sperre: kortet står minst 2 s (4 s når et hemmelig dyr avsløres), og Vilde får snakke ferdig
+    goalReadyAt = performance.now() + (news.unlocked ? 4000 : 2000);
     goalShownAt = performance.now();
-    Sfx.say(news.unlocked ? [news.unlocked + '_laast_opp'] : [news.newAnimal ? 'nytt_i_albumet' : 'ros_4', 'neste_' + nxt.kind], true);
+    goalMaxVent = news.unlocked ? 9000 : 6000;
+    goalEl.classList.remove('paavei');
+    goalEl.classList.add('sperret');
+    setTimeout(() => goalEl.classList.remove('sperret'), news.unlocked ? 4000 : 2000);
+    const vansk = settings.difficulty !== 'lett';
+    Sfx.say(news.unlocked ? [news.unlocked + '_laast_opp'] : [news.newAnimal ? 'nytt_i_albumet' : news.nyBest ? 'rekord' : vansk ? 'ros_2' : 'ros_4', 'neste_' + nxt.kind], true);
     // Små barn trenger ikke finne knappen: neste runde starter av seg selv etter en stund
     clearTimeout(goalAuto);
-    goalAuto = setTimeout(() => { goalReadyAt = 0; nextRound(); }, news.unlocked ? 16000 : 11000);
+    goalAuto = setTimeout(() => { goalReadyAt = 0; goalMaxVent = 0; nextRound(); }, news.unlocked ? 16000 : 11000);
   }
-  let goalAuto = 0, goalShownAt = 0, nyFigur = false;
-  function nextRound(nå) {
+  let goalAuto = 0, goalShownAt = 0, nyFigur = false, goalMaxVent = 6000, goalRetry = 0;
+  function nextRound() {
     if (state !== 'goal' || performance.now() < goalReadyAt) return;
-    if (nå) Sfx.hush();
     // La Vilde snakke ferdig før neste runde (høyst 6 s), så hun ikke blir kuttet midt i
-    if (!nå && Sfx.speaking() && performance.now() < goalShownAt + 6000) { setTimeout(() => { if (state === 'goal') { goalReadyAt = 0; nextRound(); } }, 400); return; }
+    // Vanskelig (større barn): et trykk går videre med en gang. Lett og avsløringer: Vilde snakker ferdig.
+    const avsloring = !$('goalUnlock').classList.contains('hidden');
+    if (settings.difficulty !== 'lett' && !avsloring) Sfx.hush();
+    if (Sfx.speaking() && performance.now() < goalShownAt + goalMaxVent) {
+      goalEl.classList.add('paavei');   // viser at trykket er registrert
+      clearTimeout(goalRetry); goalRetry = setTimeout(() => { if (state === 'goal') nextRound(); }, 300);
+      return;
+    }
+    goalEl.classList.remove('paavei');
     clearTimeout(goalAuto);
     show(goalEl, false);
     blurActive();
@@ -1844,8 +1929,10 @@
       });
       const cur = JumpCam.currentDeviceId();
       if (cur) sel.value = cur;
+      camEl.classList.remove('nocam');
     } catch (e) {
       console.warn('Kamerafeil', e);
+      camEl.classList.add('nocam');   // skjuler «Hopp 3 ganger» og Start, viser «Spill uten kamera»
     }
   }
 
@@ -1855,7 +1942,9 @@
 
   async function openCamSetup() {
     Sfx.init();
+    goFullscreen();
     Sfx.setVoice(settings.voice);
+    camEl.classList.remove('nocam');
     show(menuEl, false); show(camEl, true);
     state = 'camsetup';
     camJumps = 0; updateStars();
@@ -1870,6 +1959,10 @@
     JumpCam.drawPreview(previewCtx, 0, 0, previewCanvas.width, previewCanvas.height, {});
     const msg = JumpCam.state.message;
     if (msg !== lastStatus) { lastStatus = msg; $('camStatus').textContent = msg; }
+    const klar = JumpCam.state.active && (JumpCam.state.mode === 'pose' || JumpCam.state.mode === 'motion');
+    const tips = JumpCam.state.mode === 'motion' ? 'Trykk ▶ Start når du er klar' : 'Hopp 3 ganger for å starte!';
+    if ($('camTip').textContent !== tips) $('camTip').textContent = tips;
+    if ($('camStart').disabled === klar) $('camStart').disabled = !klar;
     // Test av armene: barnet ser at det får vinger
     const st = JumpCam.state, ok = st.mode === 'pose' && st.person && JumpCam.arms();
     const am = ok ? '🕊️ Du har vinger! Armene er ute ✓'
@@ -1881,14 +1974,19 @@
     }
   }
 
-  function pause() {
+  function pause(auto) {
     if (state !== 'play') return;
     state = 'pause';
+    autoPaused = !!auto;
+    $('pauseTitle').textContent = auto ? '⏸ Spillet venter på deg' : '⏸ Pause';
+    pauseShownAt = performance.now();
     show(pauseEl, true);
     Sfx.pauseMusic(true);
+    Sfx.hush();
   }
   function resume() {
     if (state !== 'pause') return;
+    idleT = 0; autoPaused = false;
     state = 'play';
     show(pauseEl, false);
     blurActive();
@@ -1900,6 +1998,7 @@
     state = 'menu';
     useCamera = false;
     JumpCam.stop();
+    holdVaaken(false);
     show(pauseEl, false); show(camEl, false); show(goalEl, false); show(menuEl, true);
     Sfx.stopMusic();
     resetSession();
@@ -1936,21 +2035,28 @@
   });
   $('btnKeys').addEventListener('click', () => { goFullscreen(); startGame(false); });
   $('btnCam').addEventListener('click', openCamSetup);
-  $('btnResume').addEventListener('click', resume);
-  $('btnToMenu').addEventListener('click', toMenu);
+  $('btnResume').addEventListener('click', e => { e.stopPropagation(); resume(); });
+  // Et trykk hvor som helst på pausekortet fortsetter spillet (barn som kom hit ved uhell, kommer rett tilbake)
+  pauseEl.addEventListener('click', e => { if (!e.target.closest('#btnToMenu') && performance.now() > pauseShownAt + 500) resume(); });
+  // «Til menyen» kaster runden: på berøringsskjerm må den holdes inne, så små fingre ikke avslutter ved uhell
+  holdKnapp($('btnToMenu'), toMenu);
   $('camStart').addEventListener('click', () => { goFullscreen(); startGame(true); });
   $('camBack').addEventListener('click', toMenu);
+  $('camNoCam').addEventListener('click', () => { goFullscreen(); startGame(false); });
   $('camSens').addEventListener('input', e => { settings.sens = +e.target.value; JumpCam.setSensitivity(settings.sens); saveSettings(); });
   $('camSelect').addEventListener('change', e => { settings.camId = e.target.value; saveSettings(); startCamera(); });
 
   JumpCam.init($('camVideo'));
   JumpCam.onJump(() => {
     if (state === 'play') jump(false);
+    else if (state === 'pause' && autoPaused) resume();
     else if (state === 'goal') nextRound();
     else if (state === 'camsetup' && camJumps < 3) {
       camJumps++; updateStars();
       Sfx.jump();
-      if (camJumps >= 3) setTimeout(() => { if (state === 'camsetup') startGame(true); }, 700);
+      // Tre hopp starter spillet – men bare med kroppssporing. Reservesporingen ser all bevegelse som hopp
+      // (den startet spillet av seg selv uten noen i bildet), så der må man trykke Start.
+      if (camJumps >= 3 && JumpCam.state.mode === 'pose') setTimeout(() => { if (state === 'camsetup') startGame(true); }, 700);
     }
   });
   Sfx.onVoices(syncMenu);
@@ -1964,7 +2070,8 @@
   };
   const releaseKeys = () => { keys.up = keys.down = keys.left = keys.right = false; };
   window.addEventListener('keydown', e => {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') && e.key !== 'Escape') return;
+    if (e.key === 'Escape' && !$('album').classList.contains('hidden')) { closeAlbum(); return; }
     if (e.key === 'Escape' && !$('tvHelp').classList.contains('hidden')) { show($('tvHelp'), false); return; }
     if (e.key === 'Escape' && !$('profiles').classList.contains('hidden')) { if (redigerer) renderProfiler(); else closeProfiler(); return; }
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
@@ -1985,10 +2092,22 @@
   // Trykk hvor som helst på skjermen = hopp (hold fingeren på = høyere hopp)
   let jumpPointer = null;
   canvas.addEventListener('pointerdown', e => {
-    if (state === 'play' && hitPause(e)) { e.preventDefault(); Sfx.click(); pause(); return; }
+    if (state === 'play' && hitPause(e)) {
+      e.preventDefault();
+      if (e.pointerType === 'mouse') { Sfx.click(); pause(); return; }
+      pauseHold = { id: e.pointerId, t0: performance.now() };   // finger: må holdes inne
+      return;
+    }
     if (state === 'play') { e.preventDefault(); jumpPointer = e.pointerId; keys.up = true; jump(false); }
   });
-  const endJumpPointer = e => { if (e.pointerId === jumpPointer) { jumpPointer = null; keys.up = false; } };
+  const endJumpPointer = e => {
+    if (pauseHold && e.pointerId === pauseHold.id) {
+      // Sluppet for tidlig: det var bare et vanlig trykk, altså et hopp
+      pauseHold = null;
+      if (state === 'play') { pauseHint = 1.8; jump(false); }
+    }
+    if (e.pointerId === jumpPointer) { jumpPointer = null; keys.up = false; }
+  };
   window.addEventListener('pointerup', endJumpPointer);
   window.addEventListener('pointercancel', endJumpPointer);
   document.addEventListener('visibilitychange', () => {
@@ -1996,12 +2115,35 @@
       writeSave(); releaseKeys();
       if (state === 'play') pause();
       if (state === 'goal') clearTimeout(goalAuto);   // ikke start neste runde mens appen er skjult
-    } else if (state === 'goal') {
-      clearTimeout(goalAuto);
-      goalAuto = setTimeout(() => { goalReadyAt = 0; nextRound(); }, 11000);
     }
+    // Tilbake etter låsing: målkortet blir stående til noen trykker (ingen ny nedtelling)
   });
   window.addEventListener('pagehide', writeSave);
+  for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => Sfx.wake(), true);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { Sfx.wake(); if (useCamera && state !== 'menu') holdVaaken(true); } });
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault());
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  // Snus telefonen på høykant midt i en runde, vises «Snu skjermen» – da skal spillet stå stille
+  const hoykant = window.matchMedia ? window.matchMedia('(orientation: portrait) and (max-width: 600px), (orientation: portrait) and (pointer: coarse)') : null;
+  if (hoykant) {
+    const paaHoykant = () => { if (hoykant.matches && state === 'play') pause(); };
+    if (hoykant.addEventListener) hoykant.addEventListener('change', paaHoykant); else if (hoykant.addListener) hoykant.addListener(paaHoykant);
+  }
+
+  // En knapp som må holdes inne (0,6 s) på berøringsskjerm; med mus eller tastatur er det et vanlig klikk
+  function holdKnapp(el, fn) {
+    let t = 0, touch = false;
+    const stopp = () => { clearTimeout(t); t = 0; el.classList.remove('holder'); };
+    el.addEventListener('pointerdown', e => {
+      touch = e.pointerType !== 'mouse';
+      if (!touch) return;
+      el.classList.add('holder');
+      t = setTimeout(() => { stopp(); fn(); }, 600);
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, stopp);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('click', e => { e.stopPropagation(); if (!touch) fn(); touch = false; });
+  }
 
   // ---------- Knapper på skjermen (iPhone / iPad) ----------
   function holdButton(el, key, onPress) {
@@ -2020,17 +2162,18 @@
   holdButton($('tSlow'), 'left');
   holdButton($('tFast'), 'right');
   holdButton($('tJump'), 'up', () => jump(false));
-  $('btnNext').addEventListener('click', e => { e.stopPropagation(); goalReadyAt = 0; nextRound(true); });
+  $('btnNext').addEventListener('click', e => { e.stopPropagation(); nextRound(); });
   // Et trykk hvor som helst på målkortet (også på dyrebildene) går videre – bortsett fra menyknappen
   goalEl.addEventListener('click', e => {
     if (e.target.closest('#btnGoalMenu')) return;
     nextRound();
   });
-  $('btnGoalMenu').addEventListener('click', () => { clearTimeout(goalAuto); toMenu(); });
+  holdKnapp($('btnGoalMenu'), () => { if (performance.now() < goalReadyAt) return; clearTimeout(goalAuto); clearTimeout(goalRetry); Sfx.hush(); toMenu(); });
   // Pandaen er låst opp: «Bli panda!» på målkortet
-  $('btnPandaNow').addEventListener('click', e => { e.stopPropagation(); settings.hero = e.currentTarget.dataset.hero || 'panda'; saveSettings(); goalReadyAt = 0; nextRound(true); });
+  $('btnPandaNow').addEventListener('click', e => { e.stopPropagation(); if (performance.now() < goalReadyAt) return; settings.hero = e.currentTarget.dataset.hero || 'panda'; saveSettings(); nextRound(); });
   $('btnAlbum').addEventListener('click', openAlbum);
   $('btnAlbumBack').addEventListener('click', closeAlbum);
+  $('album').addEventListener('click', e => { if (e.target === $('album')) closeAlbum(); });
   // Trykk på et dyr i albumet: dyrelyden og Vilde sier hva det er (låste dyr: «Hvem kan det være?»)
   $('albumGrid').addEventListener('click', e => {
     const f = e.target.closest('.acard');
@@ -2056,6 +2199,7 @@
   });
 
   // Tilpass menyen: to valg – kamera eller fingeren (på Mac/PC uten berøringsskjerm: klikk eller mellomrom)
+  if (isTouch) $('camNoCam').textContent = '👆 Spill med fingeren';
   if (!isTouch) {
     $('btnKeys').innerHTML = '<span class="ico">👆</span><span class="txt">Spill uten kamera<small>Klikk eller trykk mellomrom</small></span>';
   }
@@ -2077,7 +2221,7 @@
     iphone: {
       steps: ['Sveip ned fra <b>øverste høyre hjørne</b> av skjermen.',
         `Trykk på ${IC_MIRROR} <b>Skjermspeiling</b>.`,
-        'Velg TV-en. Snu telefonen på tvers og start spillet.'],
+        'Velg TV-en. Snu telefonen på tvers (slå av rotasjonslåsen) og start spillet.'],
       cam: 'Sett telefonen opp på tvers foran TV-en, med skjermen mot barnet.',
       need: 'Trenger Apple TV eller en TV med AirPlay (mange nyere Samsung, LG og Sony), på samme Wi-Fi. Første gang viser TV-en en kode som du skriver inn. Stopp: samme sted, «Stopp speiling». Smale svarte kanter er normalt.',
     },
@@ -2116,7 +2260,7 @@
     show($('tvMirrorNum'), needsHome);
     $('tvMirrorTitle').textContent = needsHome ? 'Vis spillet på TV-en' : 'Slik viser du spillet på TV-en';
     $('tvSteps').innerHTML = g.steps.map(t => `<li>${t}</li>`).join('');
-    $('tvCamTip').innerHTML = `📷 <b>Med kamera:</b> ${g.cam} Barnet står 2–3 meter unna.`;
+    $('tvCamTip').innerHTML = `📷 <b>Med kamera:</b> ${g.cam} Bare barnet som spiller står i bildet, 2–3 meter unna. Velg Lett – bildet på TV-en er litt forsinket.`;
     $('tvNeed').textContent = g.need;
   }
   const tvEl = $('tvHelp');
@@ -2134,16 +2278,17 @@
     $('profileName').textContent = visNavn(p);
   }
   const antallDyr = id => Object.keys((id === profiler.aktiv ? save : lesSave(id)).done || {}).length;
-  let redigerer = null, valgtIkon = 'rabbit', slettKlar = 0;
+  let redigerer = null, valgtIkon = 'rabbit', slettFra = 0;
   function renderProfiler() {
     redigerer = null;
     $('profTitle').textContent = 'Hvem spiller?';
     show($('profGrid'), true); show($('profEdit'), false); show($('btnProfilesClose'), true);
     const kort = profiler.liste.map(p =>
       `<div class="prof${p.id === profiler.aktiv ? ' on' : ''}"><button class="prof-pick" data-id="${p.id}"><img src="${portrait(p.ikon)}" alt=""><b>${esc(visNavn(p))}</b><small>📖 ${antallDyr(p.id)} av ${ANIMALS.length}</small></button>` +
-      `<button class="prof-pen" data-edit="${p.id}" aria-label="Endre ${esc(visNavn(p))}">✏️</button></div>`);
+      `<button class="prof-pen hold-btn" data-edit="${p.id}" aria-label="Endre ${esc(visNavn(p))} (hold inne)">✏️</button></div>`);
     if (profiler.liste.length < MAKS_SPILLERE) kort.push('<div class="prof prof-new"><button class="prof-pick" data-new="1"><span class="plus">＋</span><b>Ny spiller</b><small>&nbsp;</small></button></div>');
     $('profGrid').innerHTML = kort.join('');
+    for (const b of $('profGrid').querySelectorAll('.prof-pen')) holdKnapp(b, () => { Sfx.init(); Sfx.click(); redigerProfil(b.dataset.edit); });
   }
   function openProfiler(snakk) {
     renderProfiler();
@@ -2159,7 +2304,7 @@
     $('profNavn').value = p.navn || '';
     valgtIkon = p.ikon;
     $('profIcons').innerHTML = ANIMALS.map(a => `<button data-ikon="${a.kind}" class="${a.kind === valgtIkon ? 'on' : ''}" aria-label="${a.name}"><img src="${portrait(a.kind)}" alt=""></button>`).join('');
-    slettKlar = 0; $('profDelete').classList.remove('sure'); $('profDelete').textContent = 'Slett spiller';
+    show($('profConfirm'), false); show($('profActions'), true);
     show($('profDelete'), id !== 'ny' && profiler.liste.length > 1);
     show($('profGrid'), false); show($('profEdit'), true); show($('btnProfilesClose'), false);
     if (id === 'ny' && !isTouch) setTimeout(() => $('profNavn').focus(), 50);
@@ -2175,8 +2320,7 @@
     const b = e.target.closest('button');
     if (!b) return;
     Sfx.init(); Sfx.click();
-    if (b.dataset.edit) redigerProfil(b.dataset.edit);
-    else if (b.dataset.new) redigerProfil('ny');
+    if (b.dataset.new) redigerProfil('ny');
     else if (b.dataset.id) velgProfil(b.dataset.id);
   });
   $('profIcons').addEventListener('click', e => {
@@ -2202,17 +2346,18 @@
   $('profSave').addEventListener('click', lagreProfil);
   $('profNavn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lagreProfil(); } });
   $('profCancel').addEventListener('click', renderProfiler);
-  // Slett: to trykk (første trykk spør), så ingen sletter et album ved et uhell
+  // Slett: egen bekreftelse («Nei, behold» er den store knappen), så ingen sletter et album ved et uhell
   $('profDelete').addEventListener('click', () => {
     const p = profiler.liste.find(x => x.id === redigerer);
     if (!p || profiler.liste.length <= 1) return;
-    if (performance.now() > slettKlar) {
-      slettKlar = performance.now() + 4000;
-      $('profDelete').classList.add('sure');
-      $('profDelete').textContent = `Trykk igjen for å slette albumet til ${visNavn(p)}`;
-      setTimeout(() => { if (performance.now() > slettKlar) { $('profDelete').classList.remove('sure'); $('profDelete').textContent = 'Slett spiller'; } }, 4100);
-      return;
-    }
+    $('profConfirmTxt').textContent = `Slette ${visNavn(p)} og hele albumet?`;
+    show($('profActions'), false); show($('profConfirm'), true);
+    slettFra = performance.now() + 800;
+  });
+  $('profNo').addEventListener('click', () => { show($('profConfirm'), false); show($('profActions'), true); });
+  $('profYes').addEventListener('click', () => {
+    const p = profiler.liste.find(x => x.id === redigerer);
+    if (!p || profiler.liste.length <= 1 || performance.now() < slettFra) return;
     profiler.liste = profiler.liste.filter(x => x.id !== p.id);
     // Bytt først (byttProfil lagrer den gamle spilleren), og slett albumet etterpå
     if (profiler.aktiv === p.id) byttProfil(profiler.liste[0].id);
@@ -2221,6 +2366,11 @@
     renderProfiler();
   });
 
+  // Barn som ikke kan lese, trykker på enhjørningen: da starter spillet (berøring) eller Vilde sier hei
+  $('logo').addEventListener('click', () => {
+    Sfx.init();
+    if (isTouch) { goFullscreen(); startGame(false); } else Sfx.say('hei', true);
+  });
   // Menylogo tegnes med samme grafikk som spillet
   try { $('logo').src = Art.logoDataURL(); } catch (e) { console.warn(e); }
 
@@ -2246,7 +2396,7 @@
       update(dt);
       render();
       if (state === 'camsetup') drawCamSetup();
-      const wantTouch = isTouch && state === 'play' && fest <= 0;
+      const wantTouch = isTouch && state === 'play' && fest <= 0 && !useCamera;
       if (touchEl.classList.contains('hidden') === wantTouch) show(touchEl, wantTouch);
       if (wantTouch) {
         touchEl.classList.toggle('lett', settings.difficulty === 'lett');
@@ -2271,6 +2421,7 @@
     get turboMeter() { return turboMeter; },
     get bubble() { return bubbleA; },
     get bumps() { return roundBumps; },
+    nesteDyr: () => nextAnimal(), vindu: (a, v) => jumpWindow(a, v),   // til testing: neste dyr og hoppevinduet
     get jumps() { return roundJumps; },
     get turboLeft() { return turbo; },
     next: () => { goalReadyAt = 0; nextRound(); },

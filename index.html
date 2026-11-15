@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="robots" content="noindex">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -41,7 +41,7 @@
 
   .overlay {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    padding: 16px; z-index: 5;
+    padding: 16px; z-index: 5; touch-action: pan-y;   /* ingen zoom med to fingre eller dobbelttrykk */
     background:
       radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
       linear-gradient(180deg, rgba(255,214,236,0.25), rgba(190,160,255,0.28));
@@ -162,6 +162,14 @@
   .range-labels { display: flex; justify-content: space-between; font-size: 14px; color: var(--ink-soft); }
   .tips { margin: 0; padding-left: 22px; font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
   .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .cam-priv { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  #camNoCam { display: none; }
+  #camStart:disabled { opacity: 0.45; filter: grayscale(0.4); cursor: default; }
+  /* Kameraet startet ikke (nei til kamera eller ikke noe kamera): bare forklaringen og veien videre */
+  #camsetup.nocam .stars, #camsetup.nocam .tip-big, #camsetup.nocam .arms-check, #camsetup.nocam .cam-side label,
+  #camsetup.nocam .tips, #camsetup.nocam #camStart, #camsetup.nocam .cam-priv, #camsetup.nocam #camPreview { display: none; }
+  #camsetup.nocam #camNoCam { display: inline-flex; }
+  #camsetup.nocam .status { font-size: 20px; }
   /* Kameraoppsettet skal alltid få plass uten rulling: bildet og panelet side om side,
      og bildet krymper etter skjermhøyden (testerne fant Start-knappen utenfor skjermen) */
   #camsetup .cam-layout { flex-wrap: nowrap; }
@@ -194,6 +202,7 @@
     #camsetup .cam-side select { font-size: 13px; padding: 3px 6px; border-radius: 10px; }
     #camsetup .range-labels { font-size: 11px; }
     #camsetup .tips { display: none; }
+    #camsetup .cam-priv { font-size: 11px; }
     #camsetup .btn-row button.big.short { min-width: 110px; min-height: 42px; font-size: 18px; padding: 6px 14px 8px; }
     #camsetup .btn-row button.small { font-size: 13px; padding: 5px 10px; }
   }
@@ -221,7 +230,25 @@
   .medal { font-size: 26px; letter-spacing: 4px; }
   .medal .dim { filter: grayscale(1); opacity: 0.3; }
   .goal-card { position: relative; cursor: pointer; }
-  .goal-card button.corner { position: absolute; top: 14px; right: 16px; font-size: 15px; padding: 6px 14px; opacity: 0.85; }
+  .goal-card button.corner { position: absolute; top: 14px; right: 16px; font-size: 15px; padding: 6px 14px; opacity: 0.85; line-height: 1.1; }
+  /* Pausekortet */
+  .pause-card { max-width: 560px; padding-top: 34px; padding-bottom: 26px; }
+  .pause-card .big-buttons { margin-bottom: 0; }
+  .pause-card #btnResume { min-width: 300px; min-height: 110px; font-size: 38px; }
+  .pause-card button.corner { position: absolute; top: 12px; right: 14px; font-size: 15px; padding: 6px 14px; line-height: 1.1; }
+  /* Knapper som må holdes inne på berøringsskjerm: fylles opp mens man holder */
+  .hold-btn { position: relative; overflow: hidden; }
+  .hold-btn small { display: none; font-size: 11px; font-weight: 500; opacity: 0.75; }
+  @media (pointer: coarse) { .hold-btn small { display: block; } }
+  .hold-btn::after { content: ""; position: absolute; inset: 0; background: rgba(255,77,136,0.28); transform: scaleX(0); transform-origin: left; }
+  .hold-btn.holder::after { transform: scaleX(1); transition: transform 0.6s linear; }
+  /* Målkortet: knappene er dempet til kortet er klart, og «på vei» når et trykk venter på at Vilde blir ferdig */
+  #goal.sperret button { opacity: 0.45; }
+  #goal button { transition: opacity 0.3s; }
+  #goal.paavei #btnNext, #goal.paavei #btnPandaNow { animation: paavei 0.6s ease-in-out infinite alternate; }
+  @keyframes paavei { from { filter: brightness(1); } to { filter: brightness(1.18); transform: scale(1.03); } }
+  .funnet { display: flex; gap: 8px; margin-top: 6px; }
+  .funnet img { width: 54px; height: 46px; object-fit: contain; background: #fff; border-radius: 14px; padding: 2px; }
 
   /* Trykknapper for iPhone/iPad */
   .touch { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
@@ -271,6 +298,12 @@
       background: linear-gradient(180deg, #fff3fa, #efe6ff); color: var(--pink); font-size: 26px; font-weight: 600;
     }
     .rotate-hint .phone { font-size: 90px; animation: turn 2.4s ease-in-out infinite; }
+    .rotate-hint .rh-title {
+      font-size: clamp(30px, 9vw, 54px); font-weight: 700; line-height: 1.05; margin-bottom: 8px;
+      background: linear-gradient(90deg, #ff5e8a 0%, #ff9f43 22%, #f5c400 40%, #39c47a 58%, #2fa8f5 76%, #8b5cf6 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .rotate-hint small { font-size: 16px; font-weight: 500; color: var(--ink-soft); max-width: 300px; }
   }
   @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 
@@ -312,6 +345,7 @@
   .prof-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
   button.prof-del { background: #ffe1e6; box-shadow: 0 4px 0 #f5b8c4; color: #b3284c; }
   button.prof-del.sure { background: #e8456f; color: #fff; box-shadow: 0 4px 0 #b3284c; }
+  .prof-confirm p { margin: 4px 0 8px; font-size: 20px; font-weight: 600; color: #b3284c; }
   .tv-card { max-width: 900px; padding-top: 24px; }
   .tv-card h2 { margin-bottom: 12px; }
   .tv-cols { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -320,6 +354,7 @@
   .tv-box h3 small { font-size: 15px; font-weight: 500; color: var(--ink-soft); }
   .tv-box .num { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 19px; flex: none; }
   .tv-box .steps { margin-bottom: 8px; }
+  .tv-need { font-size: 16px; line-height: 1.4; color: var(--ink-soft); margin: 0 auto 10px; max-width: 70ch; }
   .tv-tip { font-size: 18px; font-weight: 500; background: #fff4d6; border-radius: 18px; padding: 10px 16px; margin: 0 0 8px; color: var(--ink); }
   .ic { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.28em; padding: 2px; border-radius: 7px; background: #fff; color: var(--pink); box-shadow: 0 1px 3px rgba(120,60,160,0.25); }
   .steps { text-align: left; margin: 0 0 12px; padding-left: 26px; font-size: 18px; line-height: 1.5; color: var(--ink-soft); }
@@ -350,7 +385,7 @@
     .tv-box .steps { font-size: 13.5px; line-height: 1.35; padding-left: 20px; margin-bottom: 4px; }
     .tv-box .steps li { margin-bottom: 3px; }
     .tv-tip { font-size: 13px; padding: 6px 12px; border-radius: 14px; margin-bottom: 4px; }
-    .tv-card .help { font-size: 12px; line-height: 1.4; margin: 0 0 6px; }
+    .tv-need { font-size: 12.5px; line-height: 1.3; margin-bottom: 6px; }
   }
 
   /* Velg figur (enhjørning eller panda) */
@@ -416,7 +451,7 @@
     display: flex; align-items: center; justify-content: center; gap: 18px; margin: 0 0 14px; padding: 10px 18px;
     background: linear-gradient(180deg, #fff7d6, #ffeef7); border-radius: 26px; box-shadow: 0 0 0 4px #ffe28a;
   }
-  .unlock img { width: 140px; animation: wiggle 1.4s ease-in-out infinite; }
+  .unlock img { width: 190px; animation: wiggle 1.4s ease-in-out infinite; }
   .unlock b { display: block; font-size: 26px; color: var(--pink); margin-bottom: 10px; }
 
   /* Kameraoppsett: test av armene */
@@ -470,7 +505,7 @@
     .goal-animals img { width: 92px; box-shadow: 0 0 0 4px #fff, 0 0 0 7px rgba(255,190,220,0.7), 0 8px 16px -8px rgba(110,40,140,0.45); }
     .medal { font-size: 20px; }
     .goal-card { padding-top: 10px; }
-    .goal-card button.corner { top: 8px; right: 10px; font-size: 13px; padding: 4px 10px; }
+    .goal-card button.corner { top: 6px; right: 8px; font-size: 15px; padding: 9px 14px; opacity: 1; }
     .touch .hand { font-size: 44px; right: calc(46px + env(safe-area-inset-right)); bottom: calc(124px + env(safe-area-inset-bottom)); }
     .goal-animals .arrow { font-size: 30px; }
     .goal-animals figure { font-size: 15px; }
@@ -491,7 +526,11 @@
     .album-btn { min-height: 42px; padding: 2px 10px 2px 6px; }
     .album-btn .book { font-size: 22px; }
     .acard img { width: 64px; }
-    .album-card button.corner { top: 8px; left: 10px; font-size: 13px; padding: 4px 10px; }
+    .album-card button.corner { top: 6px; left: 8px; font-size: 15px; padding: 9px 14px; }
+    .pause-card { padding-top: 26px; padding-bottom: 16px; }
+    .pause-card #btnResume { min-width: 240px; min-height: 84px; font-size: 30px; }
+    .pause-card button.corner { top: 6px; right: 8px; padding: 7px 12px; }
+    .funnet img { width: 40px; height: 34px; }
     .acard b { font-size: 15px; }
     .acard small { font-size: 11px; }
     .acard .medal { font-size: 12px; min-height: 14px; }
@@ -499,8 +538,53 @@
     .album-hero img { width: 70px; }
     .goal-album { font-size: 15px; margin: -2px 0 6px; }
     .unlock { padding: 6px 12px; gap: 10px; }
-    .unlock img { width: 80px; }
+    .unlock img { width: 120px; }
     .unlock b { font-size: 18px; margin-bottom: 6px; }
+  }
+
+  /* Veldig lav skjerm (iPhone-Safari på tvers med adressefeltet synlig, ca. 340 px): alt skal få plass uten rulling */
+  @media (max-height: 360px) {
+    .overlay { padding: 4px; }
+    .card { padding: 5px 18px 7px; max-height: calc(100dvh - 8px); border-radius: 26px; }
+    .logo { width: 70px; margin-bottom: -6px; }
+    h1 { font-size: 25px; }
+    h2 { font-size: 22px; margin-bottom: 5px; }
+    .lead { font-size: 15px; margin: 0 0 5px; }
+    .big-buttons { margin-bottom: 6px; }
+    button.big { min-height: 58px; }
+    .settings { padding: 4px 10px; gap: 4px; margin-bottom: 0; }
+    .tv-card { padding: 6px 14px 6px; }
+    .tv-card h2 { font-size: 20px; margin: 0 0 3px; }
+    .tv-need { font-size: 11.5px; margin-bottom: 4px; }
+    .tv-box { padding: 6px 10px 0; }
+    .tv-box .steps { font-size: 12.5px; line-height: 1.28; }
+    .tv-tip { font-size: 12px; padding: 4px 10px; }
+    .goal-card { padding-top: 6px; }
+    .goal-title { font-size: 28px; }
+    .goal-text { font-size: 15px; margin: 2px 0 4px; }
+    .goal-animals { margin: 6px 0 4px; }
+    .goal-animals img { width: 74px; }
+    .goal-album { font-size: 13px; margin: 0 0 4px; }
+    .unlock { padding: 4px 10px; margin-bottom: 6px; }
+    .unlock img { width: 96px; }
+    .unlock b { font-size: 16px; margin-bottom: 4px; }
+    button.big.short { min-height: 48px; font-size: 20px; }
+    #goal .help { margin: 2px 0 0; font-size: 12px; }
+    #camsetup .card.wide { padding: 5px 12px 6px; }
+    #camsetup h2 { font-size: 18px; margin: 0 0 4px; }
+    #camsetup #camPreview { width: min(50vw, calc((100dvh - 60px) * 4 / 3)); }
+    #camsetup .cam-side { gap: 3px; }
+    #camsetup .stars { font-size: 20px; }
+    #camsetup .tip-big { font-size: 14px; }
+    #camsetup .range-labels { display: none; }
+    .prof-card { padding: 6px 14px 6px; }
+    .prof-pick img, .prof-new .plus { width: 44px; height: 44px; font-size: 28px; }
+    .album-card { padding-top: 6px; }
+    .album-card h2 { margin-bottom: 2px; }
+    .album-lead { margin: 0 0 4px; font-size: 13px; }
+    .acard img { width: 52px; }
+    .album-grid { margin-bottom: 5px; }
+    .album-hero img, .mystery.big { width: 54px; height: 54px; font-size: 36px; }
   }
 </style>
 </head>
@@ -548,7 +632,7 @@
       <div class="cam-side">
         <p id="camStatus" class="status">Starter kamera…</p>
         <div class="stars" id="camStars"><span>⭐</span><span>⭐</span><span>⭐</span></div>
-        <p class="tip-big">Hopp 3 ganger for å starte!</p>
+        <p class="tip-big" id="camTip">Hopp 3 ganger for å starte!</p>
         <p id="camArms" class="arms-check">🕊️ Prøv: strekk ut armene som vinger</p>
         <label>Kamera
           <select id="camSelect"><option value="">Standardkamera</option></select>
@@ -558,15 +642,16 @@
           <span class="range-labels"><span>Store hopp</span><span>Små hopp</span></span>
         </label>
         <ul class="tips">
-          <li>Hele kroppen til barnet bør synes på bildet</li>
-          <li>Stå ca. 2–3 meter fra kameraet</li>
-          <li>Prikken på magen må over den grønne streken</li>
+          <li>Bare den som spiller står i bildet – med hele kroppen, 2–3 meter unna</li>
+          <li>Prikken på magen må over den grønne streken når du hopper</li>
           <li>Når enhjørningen flyr: strekk ut armene som vinger, så flyr den lenger og hjertene blir til gull</li>
         </ul>
         <div class="btn-row">
           <button id="camStart" class="big pink short">▶ Start</button>
+          <button id="camNoCam" class="big blue short">👆 Spill uten kamera</button>
           <button id="camBack" class="small">Tilbake</button>
         </div>
+        <p class="cam-priv">🔒 Kamerabildet blir på enheten. Ingenting lagres eller sendes.</p>
       </div>
     </div>
   </div>
@@ -592,7 +677,7 @@
       <button id="btnNext" class="big pink short">▶ Neste dyr!</button>
     </div>
     <p class="help" id="goalHelp">Trykk ↑ eller mellomrom for å fortsette</p>
-    <button id="btnGoalMenu" class="small corner" aria-label="Til menyen">☰ Meny</button>
+    <button id="btnGoalMenu" class="small corner hold-btn" aria-label="Til menyen">☰ Meny<small>hold inne</small></button>
   </div>
 </div>
 
@@ -622,9 +707,10 @@
 <div id="tvHelp" class="overlay hidden">
   <div class="card tv-card">
     <h2>📺 Spill på TV-en</h2>
+    <p class="tv-need" id="tvNeed"></p>
     <div class="tv-cols">
       <section class="tv-box hidden" id="tvApp">
-        <h3><span class="num">1</span> Gjør spillet til en app <small>(bare første gang)</small></h3>
+        <h3><span class="num">1</span> Fjern fanene <small>(valgfritt, bare første gang)</small></h3>
         <ol class="steps">
           <li>Trykk på <b>Del-knappen</b> <span class="key">⬆︎</span> i Safari. Ser du den ikke, trykk først på <span class="key">•••</span>.</li>
           <li>Velg <b>«Legg til på Hjem-skjerm»</b> og trykk <b>Legg til</b>.</li>
@@ -637,7 +723,6 @@
       </section>
     </div>
     <p class="tv-tip" id="tvCamTip"></p>
-    <p class="help" id="tvNeed"></p>
     <button id="btnTvClose" class="small">Lukk</button>
   </div>
 </div>
@@ -652,10 +737,17 @@
       <input id="profNavn" maxlength="14" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="F.eks. Ella">
       <p class="prof-hint">Velg et dyr:</p>
       <div class="prof-icons" id="profIcons"></div>
-      <div class="prof-actions">
+      <div class="prof-actions" id="profActions">
         <button id="profSave" class="big pink short">✔ Lagre</button>
         <button id="profCancel" class="small">Avbryt</button>
         <button id="profDelete" class="small prof-del">Slett spiller</button>
+      </div>
+      <div class="prof-confirm hidden" id="profConfirm">
+        <p id="profConfirmTxt">Slette spilleren og hele albumet?</p>
+        <div class="prof-actions">
+          <button id="profYes" class="small prof-del sure">Ja, slett</button>
+          <button id="profNo" class="big blue short">Nei, behold</button>
+        </div>
       </div>
     </div>
     <button id="btnProfilesClose" class="small">Lukk</button>
@@ -663,16 +755,16 @@
 </div>
 
 <!-- Snu telefonen -->
-<div class="rotate-hint"><div class="phone">📱</div><div>Snu skjermen på siden</div></div>
+<div class="rotate-hint"><div class="rh-title">Enhjørning-eventyret</div><div class="phone">📱</div><div>Snu skjermen på siden</div><small>Snur ikke bildet seg? Slå av rotasjonslåsen på telefonen.</small></div>
 
 <!-- Pause -->
 <div id="pause" class="overlay hidden">
-  <div class="card" style="max-width:520px; padding-top:30px">
-    <h2>⏸ Pause</h2>
+  <div class="card pause-card">
+    <button id="btnToMenu" class="small corner hold-btn" aria-label="Til menyen">☰ Meny<small>hold inne</small></button>
+    <h2 id="pauseTitle">⏸ Pause</h2>
     <div class="big-buttons">
       <button id="btnResume" class="big pink short">▶ Fortsett</button>
     </div>
-    <button id="btnToMenu" class="small">Til menyen</button>
   </div>
 </div>
 

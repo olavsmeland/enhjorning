@@ -37,6 +37,7 @@ window.JumpCam = (() => {
   const jumpCbs = [];
   // Kroppssporing
   let hist = [], Ls = 0, airborne = false, lostFrames = 0;
+  let lastStepT = 0;
   // Bevegelsessporing
   const MW = 96, MH = 72;
   let mcan = null, mctx = null, prevGray = null, upHist = [];
@@ -89,12 +90,13 @@ window.JumpCam = (() => {
     const my = ++session;
     stopStream();
     cancelAnimationFrame(rafId);
-    S.active = false; S.mode = 'off'; S.person = false; S.calibrated = false;
+    S.active = false; S.mode = 'off'; S.person = false; S.calibrated = false; S.many = false;
+    track = null; alt = null;
     S.message = 'Starter kamera…';
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       S.message = window.isSecureContext === false
-        ? 'Kameraet virker bare når spillet åpnes på Mac-en selv (localhost). På iPhone/iPad: spill med fingeren i stedet.'
-        : 'Denne nettleseren kan ikke bruke kamera. Prøv Google Chrome, og åpne spillet via start-spillet.command.';
+        ? 'Kameraet virker ikke fra denne adressen. Åpne spillet fra nettadressen som begynner med https – eller spill uten kamera.'
+        : 'Denne nettleseren kan ikke bruke kamera. Spill uten kamera, eller prøv en annen nettleser.';
       throw new Error(S.message);
     }
     const poseP = loadPose().catch(e => { console.warn('Kroppssporing kunne ikke lastes', e); return null; });
@@ -109,8 +111,10 @@ window.JumpCam = (() => {
       }
       if (!s) {
         S.message = e && e.name === 'NotAllowedError'
-          ? 'Fikk ikke lov til å bruke kameraet. Klikk på kamera-ikonet i adressefeltet og velg «Tillat».'
-          : 'Fant ikke noe kamera. Sjekk at kameraet er koblet til.';
+          ? (/iPhone|iPad|iPod|Android/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+            ? 'Spillet fikk ikke lov til å bruke kameraet. Last siden på nytt og trykk «Tillat» når den spør – eller spill uten kamera.'
+            : 'Spillet fikk ikke lov til å bruke kameraet. Klikk på kamera-ikonet i adressefeltet og velg «Tillat» – eller spill uten kamera.')
+          : 'Fant ikke noe kamera. Sjekk at kameraet er koblet til – eller spill uten kamera.';
         throw e;
       }
     }
@@ -158,8 +162,10 @@ window.JumpCam = (() => {
     rafId = requestAnimationFrame(loop);
     if (!S.active || !video || video.readyState < 2 || !video.videoWidth) return;
     if (video.currentTime === lastVideoTime) return;
-    lastVideoTime = video.currentTime;
     const now = performance.now();
+    if (now - lastStepT < 30) return;   // høyst ca. 30 målinger i sekundet (kameraet gir ikke flere bilder; sparer batteri)
+    lastStepT = now;
+    lastVideoTime = video.currentTime;
     try {
       if (S.mode === 'pose') poseStep(now);
       else if (S.mode === 'motion') motionStep(now);
@@ -182,14 +188,67 @@ window.JumpCam = (() => {
     return { y: sy, cx: sx, L: Math.hypot((ls.x - rs.x) * ar, ls.y - rs.y) * 1.25 };
   }
 
+  // ---------- Hvem spiller? ----------
+  // Kameraet følger SAMME person fra bilde til bilde (før: «den største i bildet», og da tok storebror
+  // eller en voksen i sofaen over). Regler:
+  //  1. Den vi følger, er den som ligger nærmest der vi så henne sist (og er omtrent like stor).
+  //  2. Ser vi henne ikke et øyeblikk, venter vi litt (1,2 s) før vi velger på nytt.
+  //  3. Ny person velges etter størrelse, men den som står midt i bildet har en klar fordel.
+  //  4. Står den vi følger helt stille mens en annen tydelig hopper, bytter vi til den som hopper.
+  let track = null;      // { cx, y, L, t } – den vi følger
+  let alt = null;        // { cx, y, L, base, t, n } – en annen person i bildet
+  function pickPerson(cands, now, ar) {
+    S.many = cands.length > 1;
+    if (!cands.length) { if (track && now - track.t > 1200) track = null; return null; }
+    const dist = (c, p) => Math.hypot((c.t.cx - p.cx) * ar, (c.t.y - p.y) * 0.6) / Math.max(p.L, 0.02) +
+      (Math.max(c.t.L / p.L, p.L / c.t.L) - 1) * 1.5;
+    let pick = null;
+    if (track) {
+      let bd = Infinity;
+      for (const c of cands) { const d = dist(c, track); if (d < bd) { bd = d; pick = c; } }
+      if (bd > 2.2) {
+        pick = null;
+        if (now - track.t < 1200) return null;   // borte et øyeblikk: ikke hopp over til en annen med en gang
+        track = null;
+      }
+    }
+    if (!pick) {
+      let bs = -1;
+      for (const c of cands) {
+        const sc = c.t.L * (1 - 0.7 * Math.min(1, Math.abs(c.t.cx - 0.5) * 2));
+        if (sc > bs) { bs = sc; pick = c; }
+      }
+      hist = []; S.calibrated = false; S.base = null; Ls = 0; airborne = false; alt = null;
+    }
+    // En annen i bildet som hopper mens den vi følger står stille? Da er det hun som spiller.
+    const other = cands.find(c => c !== pick);
+    if (other) {
+      if (!alt || dist(other, alt) > 2.2 || now - alt.t > 600) alt = { cx: other.t.cx, y: other.t.y, L: other.t.L, base: other.t.y, t: now, n: 0, up: 0 };
+      alt.n++;
+      const rise = (alt.base - other.t.y) / other.t.L;
+      alt.base += (other.t.y - alt.base) * 0.02;   // rolig glidende «ståhøyde»
+      alt.cx = other.t.cx; alt.y = other.t.y; alt.L = other.t.L; alt.t = now;
+      const stille = !airborne && (S.level || 0) < 0.5 && now - S.lastJump > 2500;
+      if (alt.n > 20 && rise > thr() * 1.3) alt.up++; else alt.up = Math.max(0, alt.up - 1);
+      if (alt.up >= 3 && stille) {
+        pick = other; alt = null;
+        hist = []; S.calibrated = false; S.base = null; Ls = 0; airborne = false;
+      }
+    } else alt = null;
+    track = { cx: pick.t.cx, y: pick.t.y, L: pick.t.L, t: now };
+    return pick;
+  }
+
   function poseStep(now) {
     const res = landmarker.detectForVideo(video, now);
     const ar = video.videoWidth / video.videoHeight || 4 / 3;
-    let best = null, info = null;
+    const cands = [];
     for (const lm of (res.landmarks || [])) {
       const t = torso(lm, ar);
-      if (t && (!info || t.L > info.L)) { info = t; best = lm; }   // den største (nærmeste) personen
+      if (t) cands.push({ lm, t });
     }
+    const valgt = pickPerson(cands, now, ar);
+    const best = valgt ? valgt.lm : null, info = valgt ? valgt.t : null;
     S.landmarks = best;
     if (!best) {
       S.person = false; S.level = 0; S.arms = 0; S.armsOut = false; armsT = 0;
@@ -249,7 +308,7 @@ window.JumpCam = (() => {
       airborne = false;
     }
     S.jumping = airborne;
-    S.message = airborne ? 'HOPP! 🎉' : 'Klar! Hopp når du vil 🦄';
+    S.message = airborne ? 'HOPP! 🎉' : S.many ? 'Klar! Jeg følger den som hopper 🦄 (best med bare én i bildet)' : 'Klar! Hopp når du vil 🦄';
   }
 
   // ---------- Enkel bevegelsessporing (reserve) ----------
