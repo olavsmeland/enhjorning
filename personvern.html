@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#92d05c">
+<link rel="icon" type="image/png" href="ikon.png">
+<title>Personvern – Enhjørning-eventyret</title>
+<style>
+  /* Samme skrift som spillet. Den ligger i spillet (lib/fredoka/), ingenting hentes fra andre nettsteder. */
+  @font-face {
+    font-family: "Fredoka"; font-style: normal; font-weight: 400 700; font-stretch: 100%; font-display: swap;
+    src: url(lib/fredoka/fredoka-latin.woff2) format("woff2");
+  }
+  :root { --pink: #ff4d88; --pink-edge: #d42c6b; --lilac: #f3ecff; --ink: #4b2a63; --ink-soft: #7a5a92; }
+  * { box-sizing: border-box; }
+  html { background: #9fd46a; }
+  body {
+    margin: 0; color: var(--ink); line-height: 1.5; font-size: 18px;
+    font-family: "Fredoka", "Arial Rounded MT Bold", "Nunito", "Varela Round", system-ui, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  main {
+    max-width: 680px; margin: 0 auto; background: #fff; border-radius: 28px; padding: 22px 26px 26px;
+    box-shadow: 0 16px 34px -10px rgba(60,20,90,0.35);
+  }
+  h1 { font-size: 32px; font-weight: 700; margin: 14px 0 0; line-height: 1.15; }
+  h2 { font-size: 22px; font-weight: 600; margin: 24px 0 6px; }
+  p { margin: 8px 0; }
+  p a { color: var(--pink-edge); font-weight: 500; }
+  ul { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .dato { color: var(--ink-soft); font-size: 15px; margin-top: 2px; }
+  .kort { background: var(--lilac); border-radius: 18px; padding: 12px 16px; font-weight: 500; margin: 16px 0 0; }
+  .tilbake {
+    display: inline-block; background: var(--pink); color: #fff; text-decoration: none; font-weight: 600;
+    border-radius: 18px; padding: 10px 20px; box-shadow: 0 4px 0 var(--pink-edge);
+  }
+  .tilbake:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--pink-edge); }
+  .bunn { margin-top: 26px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="tilbake" href="index.html">← Tilbake til spillet</a>
+  <h1>Personvern</h1>
+  <p class="dato">Enhjørning-eventyret · Sist oppdatert 15. november 2026</p>
+
+  <p class="kort">Spillet samler ikke inn opplysninger om deg eller barnet ditt. Alt skjer på enheten.</p>
+
+  <h2>📷 Kameraet</h2>
+  <ul>
+    <li>Kameraet brukes bare når du velger «Spill med kamera».</li>
+    <li>Bildet brukes der og da til å se når barnet hopper og strekker ut armene. Det skjer på enheten.</li>
+    <li>Bildet blir aldri lagret, tatt opp eller sendt noe sted.</li>
+    <li>Kameraet slås av i pause, i menyen og når spillet ikke vises på skjermen. Blir spillet stående urørt, slås kameraet av etter høyst to minutter.</li>
+    <li>Spillet virker også helt uten kamera.</li>
+  </ul>
+
+  <h2>💾 Dette lagres på enheten</h2>
+  <ul>
+    <li>navn og bilde på spillerne du selv legger inn</li>
+    <li>dyrealbumet, hjertene og rekordene</li>
+    <li>valgene dine: vanskelighet, figur, hvilket kamera og hvor følsomt det er</li>
+  </ul>
+  <p>Dette ligger bare på enheten. Det sendes ikke til oss eller til andre. Du fjerner det ved å slette spilleren under «Hvem spiller?», eller ved å slette appen eller nettleserdataene.</p>
+
+  <h2>🚫 Ingen sporing og ingen reklame</h2>
+  <ul>
+    <li>ingen reklame</li>
+    <li>ingen sporing, statistikk eller analyseverktøy</li>
+    <li>ingen informasjonskapsler (cookies)</li>
+    <li>ingen konto og ingen innlogging</li>
+  </ul>
+  <p>Lyd, skrift og kroppssporing ligger i spillet. Spillet henter ikke noe fra andre nettsteder mens det er i gang.</p>
+
+  <h2>🌐 Når du spiller i nettleseren</h2>
+  <p>Nettversjonen ligger hos GitHub Pages. Som hos alle nettsteder ser nettverten IP-adressen din når nettleseren henter filene. Spillet selv får ikke vite den, og bruker den ikke til noe.</p>
+
+  <h2>✉️ Kontakt</h2>
+  <p>Har du spørsmål om personvern i spillet? Send en e-post til <a href="mailto:smelandapps@gmail.com">smelandapps@gmail.com</a>.</p>
+
+  <p class="bunn"><a class="tilbake" href="index.html">← Tilbake til spillet</a></p>
+</main>
+</body>
+</html>

@@ -13,10 +13,20 @@
 <link rel="icon" type="image/png" href="ikon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Enhjørning-eventyret</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" href="lib/fredoka/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* Skriften Fredoka ligger i spillet (lib/fredoka/, fri lisens: OFL). Ingenting hentes fra Google Fonts.
+     Én fil dekker alle tykkelser fra 400 til 700. */
+  @font-face {
+    font-family: "Fredoka"; font-style: normal; font-weight: 400 700; font-stretch: 100%; font-display: swap;
+    src: url(lib/fredoka/fredoka-latin-ext.woff2) format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Fredoka"; font-style: normal; font-weight: 400 700; font-stretch: 100%; font-display: swap;
+    src: url(lib/fredoka/fredoka-latin.woff2) format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
   :root {
     --pink: #ff4d88;
     --pink-light: #ff8db3;
@@ -163,11 +173,12 @@
   .tips { margin: 0; padding-left: 22px; font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
   .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .cam-priv { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  .cam-priv a { color: inherit; text-decoration: underline; white-space: nowrap; padding: 6px 4px; margin: -6px -4px; }
   #camNoCam { display: none; }
   #camStart:disabled { opacity: 0.45; filter: grayscale(0.4); cursor: default; }
   /* Kameraet startet ikke (nei til kamera eller ikke noe kamera): bare forklaringen og veien videre */
   #camsetup.nocam .stars, #camsetup.nocam .tip-big, #camsetup.nocam .arms-check, #camsetup.nocam .cam-side label,
-  #camsetup.nocam .tips, #camsetup.nocam #camStart, #camsetup.nocam .cam-priv, #camsetup.nocam #camPreview { display: none; }
+  #camsetup.nocam .tips, #camsetup.nocam #camStart, #camsetup.nocam .cam-priv span, #camsetup.nocam #camPreview { display: none; }
   #camsetup.nocam #camNoCam { display: inline-flex; }
   #camsetup.nocam .status { font-size: 20px; }
   /* Kameraoppsettet skal alltid få plass uten rulling: bildet og panelet side om side,
@@ -651,7 +662,7 @@
           <button id="camNoCam" class="big blue short">👆 Spill uten kamera</button>
           <button id="camBack" class="small">Tilbake</button>
         </div>
-        <p class="cam-priv">🔒 Kamerabildet blir på enheten. Ingenting lagres eller sendes.</p>
+        <p class="cam-priv"><span>🔒 Kamerabildet blir på enheten. Ingenting lagres eller sendes.</span> <a href="personvern.html">Personvern</a></p>
       </div>
     </div>
   </div>

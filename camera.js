@@ -12,14 +12,19 @@
  * én overkroppslengde fra midten av skuldrene), har barnet strukket ut armene
  * som vinger. Spillet bruker det når enhjørningen flyr.
  *
- * Reserve: hvis kroppssporingen ikke kan lastes (f.eks. uten internett),
+ * Reserve: hvis kroppssporingen ikke kan startes (f.eks. på en gammel enhet),
  * brukes en enkel bevegelsesmåler som ser etter at hele bildet av barnet
  * flytter seg oppover. Da kan armene ikke sees.
+ *
+ * Alt skjer på enheten. Kroppssporingen (MediaPipe Pose, versjon 0.10.14) ligger i
+ * spillet, i lib/mediapipe/, og ingenting hentes fra andre nettsteder. Kamerabildet
+ * blir aldri lagret eller sendt. Spillet slår av kameraet i pause og når det ikke vises
+ * (stop()), og starter det igjen når spillet fortsetter (start()).
  */
 window.JumpCam = (() => {
-  const MP_VER = '0.10.14';
-  const MP_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-  const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+  // Fulle adresser til filene i spillets egen mappe (samme sted som siden ligger)
+  const MP_URL = new URL('lib/mediapipe', document.baseURI).href;
+  const MODEL_URL = `${MP_URL}/pose_landmarker_lite.task`;
   const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 
   const S = {
@@ -62,19 +67,30 @@ window.JumpCam = (() => {
     if (landmarker) return Promise.resolve(landmarker);
     if (loadingPose) return loadingPose;
     loadingPose = (async () => {
-      const mp = await import(`${MP_URL}/vision_bundle.mjs`);
-      const fileset = await mp.FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
       const opts = delegate => ({
         baseOptions: { modelAssetPath: MODEL_URL, delegate },
         runningMode: 'VIDEO', numPoses: 2,
         minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
       });
-      try { landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts('GPU')); }
-      catch (e) {
-        console.warn('GPU-kroppssporing feilet, prøver CPU', e);
-        landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts('CPU'));
+      // Tre forsøk: en fil som glipper én gang under lasting, skal ikke gi «enkel sporing» resten av økta.
+      // (Nettleseren husker en mislykket import, derfor får nye forsøk en egen adresse.)
+      let feil = null;
+      for (let n = 0; n < 3; n++) {
+        try {
+          const mp = await import(`${MP_URL}/vision_bundle.mjs${n ? '?forsok=' + n : ''}`);
+          const fileset = await mp.FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
+          try { landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts('GPU')); }
+          catch (e) {
+            console.warn('GPU-kroppssporing feilet, prøver CPU', e);
+            landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts('CPU'));
+          }
+          return landmarker;
+        } catch (e) {
+          feil = e;
+          if (n < 2) await new Promise(r => setTimeout(r, 400));
+        }
       }
-      return landmarker;
+      throw feil;
     })();
     loadingPose.catch(() => { loadingPose = null; });
     return loadingPose;
@@ -128,7 +144,7 @@ window.JumpCam = (() => {
     video.playsInline = true;
     try { await video.play(); } catch (e) { /* autoplay er ok siden videoen er dempet */ }
     S.active = true; S.mode = 'loading';
-    S.message = 'Laster kroppssporing… (trenger internett)';
+    S.message = 'Laster kroppssporing…';
     const lm = await poseP;
     if (my !== session) return;
     S.mode = lm ? 'pose' : 'motion';

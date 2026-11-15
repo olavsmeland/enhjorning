@@ -1,0 +1,17 @@
+Ferdige deler fra andre som spillet bruker. De ligger her, så spillet ikke henter noe fra nettet.
+Lastet ned 15.11.2026. Filene er uendret (kontrollert mot kildens egne sjekksummer).
+
+mediapipe/   Kroppssporingen: MediaPipe Tasks Vision 0.10.14 (Google), lisens Apache 2.0 (LICENSE-2.0.txt)
+  vision_bundle.mjs                        fra https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/
+  wasm/vision_wasm_internal.js og .wasm    samme sted (for nyere enheter)
+  wasm/vision_wasm_nosimd_internal.js og .wasm   samme sted (for eldre enheter, f.eks. iPad med iOS 15)
+  pose_landmarker_lite.task                modellen «Pose Landmarker (lite)», lisens Apache 2.0, fra
+      https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+
+fredoka/     Skriften Fredoka (The Fredoka Project Authors), lisens SIL Open Font License 1.1 (OFL.txt)
+  fredoka-latin.woff2        vanlige bokstaver, også æ, ø og å (tykkelse 400–700 i én fil)
+  fredoka-latin-ext.woff2    flere europeiske bokstaver (f.eks. i navn på spillere)
+  Hentet fra Google Fonts (fonts.gstatic.com/s/fredoka/v17/).
+
+Ny versjon av kroppssporingen: bytt filene i mediapipe/ med samme filer fra den nye versjonen.
+camera.js peker hit (MP_URL og MODEL_URL), og index.html peker til skriften (@font-face).

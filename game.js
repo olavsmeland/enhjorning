@@ -231,6 +231,10 @@
   // ================= Spilltilstand =================
   let state = 'menu';  // menu | camsetup | play | pause | goal
   let useCamera = false;
+  // Kameraet er bare på når det trengs. Det slås av i pause og når spillet ikke vises (camSov),
+  // og startes igjen når spillet fortsetter (camVekkes mens det starter).
+  let camSov = false, camVekkes = false, camTur = 0, camSovT = 0, camSkjult = false;
+  const CAM_VENT = 60;   // sekunder kameraet får stå på når spillet selv har satt seg på pause og venter på et hopp
   let time = 0, camX = 0;
   const U = {};
   let animals = [], hearts = [], gates = [], parts = [], confetti = [], flyers = [], flies = [], orbs = [];
@@ -969,7 +973,7 @@
     if (state === 'play' && fest <= 0) { roundT += dt; idleT += dt; if (idleT > 60) { pause(true); return; } }
     if (state === 'play' && useCamera) {
       const cs = JumpCam.state;
-      if (!cs.active) {
+      if (!cs.active && !camSov && !camVekkes) {
         // Kameraet ble koblet fra: spill videre med trykk
         useCamera = false;
         pause(true); $('pauseTitle').textContent = '📷 Kameraet ble borte – spill videre med trykk';
@@ -1757,6 +1761,7 @@
   function startGame(cam) {
     Sfx.init();
     releaseKeys();
+    camTur++; camSov = camVekkes = false; clearTimeout(camSovT);
     useCamera = !!cam && JumpCam.state.active;
     if (!useCamera) JumpCam.stop();
     holdVaaken(useCamera);
@@ -1856,7 +1861,7 @@
       (settings.difficulty !== 'lett' && roundBumps > 0 ? ` ${roundBumps} krasj – uten krasj blir det tre stjerner.` : '') +
       (settings.difficulty !== 'lett' && (goalNews || {}).tid ? ` ⏱ ${goalNews.tid} sek${goalNews.nyBest ? ' – ny bestetid!' : ''}` : '');
     $('goalNextName').textContent = nxt.name;
-    $('goalHelp').textContent = useCamera ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
+    goalHjelp();
     // Albumet, og pandaen når alle dyrene er samlet
     const news = goalNews || {}, n = doneCount();
     const sec = nextSecret();
@@ -1892,7 +1897,7 @@
     // eller et hopp med kamera, går videre. Står kortet urørt i to minutter, blir det stille
     // (musikken pauser, og skjermen får lov til å slukke).
     clearTimeout(goalAuto);
-    goalAuto = setTimeout(() => { if (state === 'goal') { Sfx.pauseMusic(true); holdVaaken(false); } }, 120000);
+    goalAuto = setTimeout(() => { if (state === 'goal') { Sfx.pauseMusic(true); holdVaaken(false); sovKamera(); } }, 120000);
   }
   let goalAuto = 0, goalShownAt = 0, nyFigur = false, goalMaxVent = 6000, goalRetry = 0;
   function nextRound() {
@@ -1909,6 +1914,7 @@
     goalEl.classList.remove('paavei');
     clearTimeout(goalAuto);
     Sfx.pauseMusic(false); if (useCamera) holdVaaken(true);
+    if (camSov) vekkKamera();   // kameraet ble slått av mens kortet sto urørt eller appen var skjult
     show(goalEl, false);
     blurActive();
     roundAnimal = (roundAnimal + 1) % ANIMALS.length;
@@ -1969,7 +1975,7 @@
     // Test av armene: barnet ser at det får vinger
     const st = JumpCam.state, ok = st.mode === 'pose' && st.person && JumpCam.arms();
     const am = ok ? '🕊️ Du har vinger! Armene er ute ✓'
-      : st.mode === 'motion' ? '🕊️ Armene kan bare sees med kroppssporing (trenger internett)'
+      : st.mode === 'motion' ? '🕊️ Armene kan bare sees med kroppssporing'
         : '🕊️ Prøv: strekk ut armene som vinger';
     if (am !== lastArms) {
       if (ok) Sfx.rainbow();
@@ -1986,9 +1992,49 @@
     show(pauseEl, true);
     Sfx.pauseMusic(true);
     Sfx.hush();
+    // Kameraet slås av i pause. Har spillet selv satt seg på pause og venter på barnet («kom tilbake og hopp»),
+    // står kameraet på i ett minutt til, så et hopp kan sette spillet i gang igjen. Så slås det av.
+    clearTimeout(camSovT);
+    if (auto) camSovT = setTimeout(() => { if (state === 'pause') sovKamera(); }, CAM_VENT * 1000);
+    else sovKamera();
+  }
+  const goalHjelp = () => {
+    $('goalHelp').textContent = useCamera && !camSov ? 'Hopp for å fortsette!' : isTouch ? 'Trykk hvor som helst for å fortsette' : 'Klikk eller trykk mellomrom for å fortsette';
+  };
+  // Slår av kameraet (lampa slukker) mens spillet står stille. vekkKamera() starter det igjen.
+  function sovKamera() {
+    clearTimeout(camSovT); camSovT = 0;
+    camTur++; camVekkes = false;   // avbryter en oppstart som er i gang
+    if (!useCamera) return;
+    camSov = true;
+    JumpCam.stop();
+    if (state === 'pause') $('pauseTitle').textContent = autoPaused ? '⏸ Spillet venter på deg' : '⏸ Pause';
+    if (state === 'goal') goalHjelp();
+  }
+  async function vekkKamera() {
+    if (camVekkes) return;
+    const tur = ++camTur, cs = JumpCam.state;
+    camVekkes = true;
+    if (state === 'pause') $('pauseTitle').textContent = '📷 Starter kameraet …';
+    try { await JumpCam.start(settings.camId); } catch (e) { console.warn('Kamerafeil', e); }
+    if (tur !== camTur) return;   // avbrutt: til menyen, ny pause eller siden ble skjult
+    // Fra pause: vent til kameraet har funnet ståhøyden (høyst 2,5 s), så det første hoppet etter pausen teller
+    const t0 = performance.now();
+    while (state === 'pause' && cs.active && cs.mode === 'pose' && !cs.calibrated && performance.now() - t0 < 2500) {
+      await new Promise(r => setTimeout(r, 100));
+      if (tur !== camTur) return;
+    }
+    camVekkes = false; camSov = false;
+    if (state !== 'pause') return;   // startet fra målkortet: runden er alt i gang (update() sier fra om kameraet mangler)
+    if (cs.active) { resume(); return; }
+    // Kameraet kom ikke i gang igjen: spill videre med trykk (som når kameraet kobles fra)
+    useCamera = false; autoPaused = true;
+    $('pauseTitle').textContent = '📷 Kameraet ble borte – spill videre med trykk';
   }
   function resume() {
     if (state !== 'pause') return;
+    if (camSov) { vekkKamera(); return; }   // kameraet må i gang først; spillet fortsetter når det er klart
+    clearTimeout(camSovT); camSovT = 0;
     idleT = 0; autoPaused = false;
     state = 'play';
     show(pauseEl, false);
@@ -2000,6 +2046,7 @@
     writeSave();
     state = 'menu';
     useCamera = false;
+    camTur++; camSov = camVekkes = camSkjult = false; clearTimeout(camSovT);
     JumpCam.stop();
     holdVaaken(false);
     show(pauseEl, false); show(camEl, false); show(goalEl, false); show(menuEl, true);
@@ -2117,8 +2164,14 @@
     if (document.hidden) {
       writeSave(); releaseKeys();
       if (state === 'play') pause();
+      // Kameraet står aldri på når spillet ikke vises (annen fane, annen app eller låst skjerm)
+      if (state === 'pause' || state === 'goal') sovKamera();
+      else if (state === 'camsetup' && !camEl.classList.contains('nocam')) { JumpCam.stop(); camSkjult = true; }
+    } else if (camSkjult) {
+      camSkjult = false;
+      if (state === 'camsetup') startCamera();   // kameraoppsettet trenger bildet igjen
     }
-    // Tilbake etter låsing: målkortet blir stående til noen trykker (ingen ny nedtelling)
+    // Tilbake etter låsing: pause- og målkortet blir stående til noen trykker. Da starter kameraet igjen.
   });
   window.addEventListener('pagehide', writeSave);
   for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => Sfx.wake(), true);
@@ -2436,5 +2489,6 @@
     get turboSaved() { return armsSaved; },
     get hero() { return hero(); },
     get rowCount() { return rowCount; },
+    get camSov() { return camSov; }, get useCamera() { return useCamera; },
   };
 })();
